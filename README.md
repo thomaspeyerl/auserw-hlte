@@ -4,6 +4,13 @@ Alle legen einen Finger aufs Display, kurz still halten – das Schicksal wählt
 
 Das Spiel besteht aus einer einzigen statischen Datei (`index.html`) ohne Abhängigkeiten oder Build-Schritt.
 
+## Grafik
+
+- **WebGL-Renderer:** Ein Szene-Shader zeichnet Nebel, Sterne, ein Gitter, das sich um jeden Finger krümmt, Schockwellen, Radarstrahl, Blitze und die Finger selbst. Darüber kommen Funken und Konfetti als Partikel, Bloom in zwei Stufen und eine Nachbearbeitung mit Verzerrung, Glitch, Farbsaum, Vignette und Scanlines.
+- **Automatische Qualität:** Kommt ein Gerät nicht hinterher, senkt das Spiel die interne Auflösung von selbst.
+- **Ersatz-Grafik:** Ohne WebGL oder nach einem Absturz des Grafikkontexts schaltet das Spiel auf eine Canvas-2D-Darstellung um.
+- **Oberfläche:** Logo, Statusanzeige, Krone und Titel sind HTML/CSS (Schrift: Orbitron).
+
 ## Deploy auf Cloudflare
 
 Das Spiel läuft als Cloudflare Worker mit statischen Assets und wird über die Git-Integration (Workers Builds) deployt:
@@ -44,6 +51,6 @@ node --test
 ```
 
 - `tests/fairness.test.mjs` prüft den echten Zufallskern aus `index.html` mit rund 1,8 Millionen simulierten Runden. Geprüft werden: Gleichverteilung für 2–12 Spieler, kein Vorteil durch Auflege-Reihenfolge oder Anordnung, Unabhängigkeit von Startpunkt und Vorrunde, eindeutige Seeds, sfc32 gegen eine Referenzimplementierung, der Fallback ohne Web Crypto und eine Gegenprobe, die eine absichtlich eingebaute Verzerrung von 2 % erkennt.
-- `tests/e2e.test.mjs` spielt komplette Runden in Chromium durch: Multitouch am Handy und Klicks am Desktop. Er prüft, dass die sichtbare Markierung auf dem gezogenen Gewinner endet. Ohne installiertes [Playwright](https://playwright.dev) wird er übersprungen.
+- `tests/e2e.test.mjs` spielt komplette Runden in Chromium durch: Multitouch am Handy, Klicks am Desktop und die Ersatz-Grafik ohne WebGL. Er prüft, dass die sichtbare Markierung auf dem gezogenen Gewinner endet. Ohne installiertes [Playwright](https://playwright.dev) wird er übersprungen.
 
 Benötigt wird nur Node.js ab Version 20.

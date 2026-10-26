@@ -9,6 +9,8 @@ try{({chromium}=createRequire(import.meta.url)('playwright'));}catch{}
 const skip=!chromium&&'Playwright ist nicht installiert';
 const url=new URL('../index.html',import.meta.url).href;
 
+const isGL=page=>page.evaluate(()=>document.body.classList.contains('gl'));
+
 async function open(browser,opts){
   const page=await browser.newPage(opts),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -24,6 +26,7 @@ test('Handy: vier Finger gleichzeitig, sichtbare Markierung endet auf dem gezoge
   const browser=await chromium.launch();
   try{
     const {page,errors}=await open(browser,{viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+    assert.equal(await isGL(page),true,'WebGL-Grafik sollte aktiv sein');
     const cdp=await page.context().newCDPSession(page);
     const touchPoints=[[90,230],[300,300],[120,560],[280,640]].map(([x,y],id)=>({x,y,id}));
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints});
@@ -56,6 +59,18 @@ test('Desktop: Klick-Runden mit drei Punkten, jede Runde mit neuem Seed',{skip,t
       await page.mouse.click(640,400); // Klick startet die nächste Runde
     }
     assert.notEqual(seeds[0],seeds[1]);
+    assert.deepEqual(errors,[]);
+  }finally{await browser.close();}
+});
+
+test('Ohne WebGL: Ersatz-Grafik mit Canvas 2D spielt eine komplette Runde',{skip,timeout:90000},async()=>{
+  const browser=await chromium.launch({args:['--disable-3d-apis']});
+  try{
+    const {page,errors}=await open(browser,{viewport:{width:1280,height:800}});
+    assert.equal(await isGL(page),false,'ohne WebGL muss die 2D-Ersatzgrafik laufen');
+    for(const [x,y] of [[400,300],[880,300],[640,600]])await page.mouse.click(x,y);
+    const r=await nextResult(page,1);
+    assert.equal(r.players,3);assert.equal(r.highlighted,r.winner);
     assert.deepEqual(errors,[]);
   }finally{await browser.close();}
 });
