@@ -1,6 +1,4 @@
-.git
-.gitignore
-.wrangler
-README.md
-LICENSE
-wrangler.jsonc
+# Nur das Spiel ausliefern: alles ignorieren außer index.html.
+# _headers liest Wrangler unabhängig davon als Konfiguration ein.
+*
+!index.html

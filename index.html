@@ -30,6 +30,8 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 #msg small{display:block;font-size:.5em;line-height:2;color:var(--dim);text-shadow:none;margin-top:16px}
 #msg.blink b{animation:blink 1.1s steps(2) infinite}
 #msg b{font-weight:400}
+#msg.up{top:calc(env(safe-area-inset-top,0px) + 40px);transform:none;font-size:clamp(11px,3.2vw,15px)}
+#msg.up small{font-size:.65em;margin-top:6px}
 @keyframes blink{50%{opacity:.2}}
 #bottom{bottom:calc(env(safe-area-inset-bottom,0px) + 16px);font-size:8px;line-height:2.2;color:var(--dim)}
 #seed{color:#cfc6f0}
@@ -51,6 +53,27 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 <div id="title">AUSERWÄHLT!</div>
 <div class="hud" id="bottom"><div id="seed">Jede Runde mit frischem Zufalls-Seed</div><div id="hint"></div></div>
 <button id="mute" aria-label="Ton an oder aus">🔊</button>
+<script id="fate">
+/* ---------- Zufall: frischer Seed je Runde + seeded PRNG (ohne DOM, damit tests/ ihn direkt prüfen) ---------- */
+var Fate=(()=>{
+let entropy=(Math.random()*4294967296)>>>0;
+function mix(x,y,t){entropy=Math.imul(entropy^((x*1000)|0)^(((y*1000)|0)<<7)^((t*1000)|0),2654435761)>>>0;}
+function sfc32(a,b,c,d){return function(){a>>>=0;b>>>=0;c>>>=0;d>>>=0;let t=(a+b)|0;a=b^(b>>>9);b=(c+(c<<3))|0;c=(c<<21)|(c>>>11);d=(d+1)|0;t=(t+d)|0;c=(c+t)|0;return (t>>>0)/4294967296;};}
+function freshSeed(){const s=new Uint32Array(4);
+  if(typeof crypto!=='undefined'&&crypto.getRandomValues)crypto.getRandomValues(s);else for(let i=0;i<4;i++)s[i]=(Math.random()*4294967296)>>>0;
+  s[0]^=(performance.now()*1000)>>>0;s[1]^=Date.now()>>>0;s[2]^=entropy;s[3]^=(Math.random()*4294967296)>>>0;
+  if(!(s[0]|s[1]|s[2]|s[3]))s[3]=1;return s;}
+/* Finger im Uhrzeigersinn um ihren Schwerpunkt – in dieser Reihenfolge springt die Auswahl */
+function ring(list){let cx=0,cy=0;list.forEach(f=>{cx+=f.x;cy+=f.y;});cx/=list.length;cy/=list.length;
+  return list.slice().sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));}
+/* Gewinner und Startpunkt unabhängig ziehen; nach steps Sprüngen steht die Markierung genau auf dem Gewinner */
+function plan(n,rng){const win=Math.floor(rng()*n),start=Math.floor(rng()*n),laps=(n>=5?3:4)+Math.floor(rng()*2);
+  return {win,start,laps,steps:laps*n+((win-start+n)%n)};}
+function draw(list){const s=freshSeed(),rng=sfc32(s[0],s[1],s[2],s[3]);for(let i=0;i<24;i++)rng();
+  const p=plan(list.length,rng);p.order=ring(list);p.hex=[...s].map(v=>v.toString(16).padStart(8,'0')).join('').toUpperCase();return p;}
+return {mix,sfc32,freshSeed,ring,plan,draw};
+})();
+</script>
 <script>
 (()=>{
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
@@ -67,14 +90,7 @@ const cache={};
 function rgb(h){if(cache[h])return cache[h];const n=parseInt(h.slice(1),16);return cache[h]=[(n>>16)&255,(n>>8)&255,n&255];}
 function rgba(h,a){const c=rgb(h);return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';}
 
-/* ---------- Zufall: frischer Seed je Runde + seeded PRNG ---------- */
-let entropy=(Math.random()*4294967296)>>>0;
-function mix(e){entropy=Math.imul(entropy^((e.clientX*1000)|0)^(((e.clientY*1000)|0)<<7)^((performance.now()*1000)|0),2654435761)>>>0;}
-function sfc32(a,b,c,d){return function(){a>>>=0;b>>>=0;c>>>=0;d>>>=0;let t=(a+b)|0;a=b^(b>>>9);b=(c+(c<<3))|0;c=(c<<21)|(c>>>11);d=(d+1)|0;t=(t+d)|0;c=(c+t)|0;return (t>>>0)/4294967296;};}
-function freshSeed(){const s=new Uint32Array(4);
-  if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(s);else for(let i=0;i<4;i++)s[i]=(Math.random()*4294967296)>>>0;
-  s[0]^=(performance.now()*1000)>>>0;s[1]^=Date.now()>>>0;s[2]^=entropy;s[3]^=(Math.random()*4294967296)>>>0;
-  if(!(s[0]|s[1]|s[2]|s[3]))s[3]=1;return s;}
+const mix=e=>Fate.mix(e.clientX,e.clientY,performance.now());
 
 /* ---------- Sound ---------- */
 let AC=null,master=null,muted=false;
@@ -89,14 +105,23 @@ muteBtn.addEventListener('click',()=>{muted=!muted;muteBtn.textContent=muted?'�
 const fingers=new Map(),touches=new Set(),parts=[],rings=[];
 let state='idle',waitStart=0,lastTick=-1,order=[],hl=-1,steps=0,step=0,nextAt=0,finalHold=false,winner=null;
 let finaleStart=0,doneStart=0,resetAt=0,nextFw=0,round=0,mouseN=0,shake=0,flash=0,flashCol='#ffffff',beam=null;
+let seedHex='',sweep=0,nextGhost=0,crownR=70;
 const WAIT=1500,PICK_MS=5600;let baseR=44,delays=[];
 
 function addP(p){if(parts.length<6500)parts.push(p);}
 function burst(x,y,col,n,spd,sz){for(let i=0;i<n;i++){const a=Math.random()*6.2832,s=(.25+Math.random())*spd,life=28+Math.random()*50;
   addP({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,size:sz||(2+(Math.random()*4|0)),col:Math.random()<.15?'#ffffff':col,drag:.955,g:0});}}
-function pixRing(x,y,col,dur,maxR,w,delay){rings.push({x,y,col,t0:performance.now()+(delay||0),dur,maxR,w});}
+function pixRing(x,y,col,dur,maxR,w,delay,a){rings.push({x,y,col,t0:performance.now()+(delay||0),dur,maxR,w,a:a==null?1:a});}
+function hub(list){let x=0,y=0;for(const f of list){x+=f.x;y+=f.y;}return {x:x/list.length,y:y/list.length};}
+function baseTarget(n){return 44*Math.min(1,Math.sqrt(4/n))*Math.min(1.4,Math.max(.8,Math.min(W,H)/400));}
+function crownY(w,R){const y=w.y-R-62;return y<8?w.y+R+30:y;}
 
-function pickColor(){const used=new Set([...fingers.values()].map(f=>f.col));const free=NEON.filter(c=>!used.has(c));const pool=free.length?free:NEON;return pool[Math.floor(Math.random()*pool.length)];}
+/* Neue Finger bekommen die Farbe, deren Farbton am weitesten von den vergebenen entfernt ist */
+const HUE={};NEON.forEach(c=>{const [r,g,b]=rgb(c).map(v=>v/255),mx=Math.max(r,g,b),d=mx-Math.min(r,g,b);let h=0;if(d)h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;HUE[c]=(h*60+360)%360;});
+function pickColor(){const used=[...fingers.values()].map(f=>f.col),free=NEON.filter(c=>!used.includes(c)),pool=free.length?free:NEON;
+  if(!used.length)return pool[Math.floor(Math.random()*pool.length)];
+  const sc=pool.map(c=>Math.min(...used.map(u=>{const d=Math.abs(HUE[c]-HUE[u]);return Math.min(d,360-d);}))),mx=Math.max(...sc),best=pool.filter((c,i)=>sc[i]>=mx*.8);
+  return best[Math.floor(Math.random()*best.length)];}
 function addFinger(id,x,y,mouse){const f={id,x,y,col:pickColor(),born:performance.now(),mouse,ph:Math.random()*6.2832,lifted:false,dying:0};
   fingers.set(id,f);burst(x,y,f.col,50,5);pixRing(x,y,f.col,520,130,6);tone(300+fingers.size*90,.12,'square',.06,1.6);buzz(15);armWait();}
 function dropFinger(id){const f=fingers.get(id);if(!f)return;
@@ -129,23 +154,19 @@ document.addEventListener('contextmenu',e=>e.preventDefault());
 function updHud(){let h='',blink=false;
   if(state==='idle'){if(fingers.size===0){h='<b>Finger aufs<br>Display!</b><small>Ab 2 Fingern geht’s los'+(FINE?'<br>Am Desktop: Klick setzt einen Punkt,<br>Klick auf den Punkt entfernt ihn':'')+'</small>';blink=true;}
     else h='Noch ein<br>Finger …<small>Mindestens 2 Spieler</small>';}
-  else if(state==='waiting')h='Still<br>halten …';
+  else if(state==='waiting')h='Still<br>halten …<small>'+fingers.size+' Spieler</small>';
   else if(state==='choosing')h='Das Schicksal<br>wählt …';
-  msgEl.innerHTML=h;msgEl.classList.toggle('blink',blink);
+  msgEl.innerHTML=h;msgEl.classList.toggle('blink',blink);msgEl.classList.toggle('up',fingers.size>0);
   msgEl.style.opacity=(state==='finale'||state==='done')?0:(fingers.size?.6:1);
   hintEl.textContent=state==='done'?(order.some(f=>!f.mouse)?'Alle Finger loslassen für die nächste Runde':'Klick für die nächste Runde'):'';
   topEl.textContent=round?'Der Auserwählte – Runde '+round:'Der Auserwählte';}
 updHud();
 
 /* ---------- Auswahl ---------- */
-function startChoosing(){const now=performance.now();const s=freshSeed();
-  const hex=[...s].map(v=>v.toString(16).padStart(8,'0')).join('').toUpperCase();
-  const rng=sfc32(s[0],s[1],s[2],s[3]);for(let i=0;i<24;i++)rng();
-  const list=[...fingers.values()];let cx=0,cy=0;list.forEach(f=>{cx+=f.x;cy+=f.y;});cx/=list.length;cy/=list.length;
-  order=list.sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));
-  const n=order.length,win=Math.floor(rng()*n),start=Math.floor(rng()*n),laps=(n>=5?3:4)+Math.floor(rng()*2);
-  steps=laps*n+((win-start+n)%n);step=0;{let sw=0;const w=[];for(let i=1;i<=steps;i++){const v=.05+Math.pow(i/steps,3.2);w.push(v);sw+=v;}delays=w.map(v=>Math.min(950,Math.max(28,PICK_MS*v/sw)));}hl=start;winner=order[win];nextAt=now+260;finalHold=false;state='choosing';round++;
-  seedEl.textContent='Seed 0x'+hex.slice(0,16)+'…';
+function startChoosing(){const now=performance.now(),p=Fate.draw([...fingers.values()]);
+  order=p.order;steps=p.steps;step=0;{let sw=0;const w=[];for(let i=1;i<=steps;i++){const v=.05+Math.pow(i/steps,3.2);w.push(v);sw+=v;}delays=w.map(v=>Math.min(950,Math.max(28,PICK_MS*v/sw)));}hl=p.start;winner=order[p.win];nextAt=now+260;finalHold=false;state='choosing';round++;seedHex=p.hex;
+  {const c=hub(order);sweep=Math.atan2(order[hl].y-c.y,order[hl].x-c.x);}
+  seedEl.textContent='Seed 0x'+seedHex.slice(0,16)+'…';
   tone(70,.7,'sawtooth',.1,3);order.forEach(f=>pixRing(f.x,f.y,f.col,600,160,5));updHud();}
 
 function startFinale(){const now=performance.now(),w=winner;state='finale';finaleStart=now;
@@ -160,13 +181,19 @@ function startFinale(){const now=performance.now(),w=winner;state='finale';final
   [523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.25,'square',.055,0,.15+i*.07));
   [523,659,784,1047].forEach(f=>tone(f,1.6,'triangle',.06,0,.62));
   buzz([90,40,260]);
-  titleEl.style.setProperty('--c',w.col);titleEl.style.top=w.y<H/2?'72%':'18%';
-  titleEl.className='';void titleEl.offsetWidth;titleEl.className='show';updHud();}
+  titleEl.style.setProperty('--c',w.col);placeTitle(w);
+  titleEl.className='';void titleEl.offsetWidth;titleEl.className='show';updHud();
+  dispatchEvent(new CustomEvent('auserw:result',{detail:{players:order.length,winner:order.indexOf(w),highlighted:hl,round,seed:seedHex}}));}
+/* Titel in den größten freien Bereich über oder unter Gewinner + Krone setzen */
+function placeTitle(w){const fs=Math.max(20,Math.min(64,W*.074)),R=baseTarget(1)*1.65,cy=crownY(w,R);
+  const top=Math.min(cy,w.y-R*1.45)-12,bot=Math.max(cy+40,w.y+R*1.45)+12,a0=80,b1=H-90;
+  const y=(top-a0)>=(b1-bot)?(a0+top)/2:(bot+b1)/2;titleEl.style.top=Math.round(y-fs*.6)+'px';}
 
 /* ---------- Update ---------- */
 function rain(n){for(let i=0;i<n;i++){const life=H/5+40;addP({x:Math.random()*W,y:-10,vx:0,vy:5+Math.random()*7,life,max:life,size:3+(Math.random()*4|0),col:Math.random()<.3?'#ffffff':winner.col,drag:1,g:.05});}}
 function update(now,k){
   if(state==='idle'&&Math.random()<.55*k){const life=260+Math.random()*200;addP({x:Math.random()*W,y:H+6,vx:0,vy:-(.3+Math.random()*1),life,max:life,size:2+(Math.random()*2|0),col:NEON[Math.random()*NEON.length|0],drag:1,g:0,dim:true});}
+  if(state==='idle'&&!fingers.size&&now>nextGhost){nextGhost=now+700+Math.random()*1100;pixRing(W*(.1+Math.random()*.8),H*(.15+Math.random()*.7),NEON[Math.random()*NEON.length|0],1100,50+Math.random()*50,4,0,.35);}
   if(state==='waiting'){const p=(now-waitStart)/WAIT,seg=Math.floor(p*8);
     if(seg>lastTick&&seg<8){lastTick=seg;tone(420+seg*70,.05,'square',.035);}
     fingers.forEach(f=>{if(Math.random()<.35*k){const a=Math.random()*6.2832;addP({x:f.x+Math.cos(a)*60,y:f.y+Math.sin(a)*60,vx:0,vy:-1-Math.random()*2,life:40,max:40,size:3,col:f.col,drag:.98,g:0});}});
@@ -180,6 +207,7 @@ function update(now,k){
         tone(200+p*760,.07,'square',.05+p*.04);if(!RM)shake=Math.max(shake,1+p*5);buzz(8);
         nextAt=now+delays[step-1];
         if(step>=steps){finalHold=true;nextAt=now+1500;[0,.38,.9,1.15].forEach(d=>tone(60,.3,'sine',.3,0,d));noise(.25,.08,.38);}}}
+    {const c=hub(order),cur=order[hl];let d=((Math.atan2(cur.y-c.y,cur.x-c.x)-sweep)%6.2832+6.2832)%6.2832;if(d>5.8)d-=6.2832;sweep+=d*Math.min(1,.3*k);}
     if(finalHold){const w=order[hl];for(let i=0;i<Math.round(4*k);i++){const a=Math.random()*6.2832,r=40+Math.random()*50;addP({x:w.x+Math.cos(a)*r,y:w.y+Math.sin(a)*r,vx:-Math.cos(a)*3,vy:-Math.sin(a)*3,life:18,max:18,size:3,col:Math.random()<.5?'#fff':w.col,drag:1,g:0});}}}
   if(state==='finale'){const el=now-finaleStart;rain(Math.round(9*k));
     if(Math.random()<.18*k)burst(winner.x,winner.y,winner.col,40,11);
@@ -206,7 +234,7 @@ function drawWave(now){if(!winner||!(state==='finale'||state==='done'))return;co
       else if(j===0&&d<r&&Math.random()<.025){ctx.fillStyle=rgba(winner.col,.3);ctx.fillRect(gx+1,gy+1,cell-2,cell-2);}}}}
 function drawRings(now){for(let i=rings.length-1;i>=0;i--){const r=rings[i];if(now<r.t0)continue;const p=(now-r.t0)/r.dur;
   if(p>=1){rings.splice(i,1);continue;}const R=r.maxR*(1-Math.pow(1-p,3)),n=Math.min(260,Math.max(12,R*6.2832/9|0)),s=Math.max(2,r.w*(1-p)+2);
-  ctx.fillStyle=rgba(r.col,(1-p).toFixed(3));for(let j=0;j<n;j++){const a=j/n*6.2832;ctx.fillRect((r.x+Math.cos(a)*R-s/2)|0,(r.y+Math.sin(a)*R-s/2)|0,s,s);}}}
+  ctx.fillStyle=rgba(r.col,((1-p)*r.a).toFixed(3));for(let j=0;j<n;j++){const a=j/n*6.2832;ctx.fillRect((r.x+Math.cos(a)*R-s/2)|0,(r.y+Math.sin(a)*R-s/2)|0,s,s);}}}
 function drawBeam(now){if(!beam)return;const age=now-beam.t;if(age>200){beam=null;return;}const a=1-age/200;
   const x1=beam.a.x,y1=beam.a.y,x2=beam.b.x,y2=beam.b.y,dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
   const segs=Math.max(6,L/22|0);let px=x1,py=y1;ctx.fillStyle=rgba(beam.col,a.toFixed(3));
@@ -225,10 +253,11 @@ function drawFinger(f,now,o){
   let x=f.x,y=f.y;const age=Math.min(1,(now-f.born)/220),e=1-Math.pow(1-age,3);
   let R=baseR*e*(1+.07*Math.sin(now/170+f.ph))*(o.scale||1),a=(f.lifted&&state!=='done'&&state!=='finale'?.55:1)*(o.alpha==null?1:o.alpha);
   if(o.jit){x+=(Math.random()-.5)*o.jit;y+=(Math.random()-.5)*o.jit;}
-  if(R<1||a<=.01)return;const c=f.col;ctx.globalAlpha=a;
+  if(R<1||a<=.01)return;const c=o.col||f.col;ctx.globalAlpha=a;
   const g=ctx.createRadialGradient(x,y,0,x,y,R*2.4);g.addColorStop(0,rgba(c,.55));g.addColorStop(.4,rgba(c,.18));g.addColorStop(1,rgba(c,0));
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,R*2.4,0,6.2832);ctx.fill();
-  ctx.shadowColor=c;ctx.shadowBlur=18;ctx.lineWidth=7;ctx.strokeStyle=c;ctx.beginPath();ctx.arc(x,y,R,0,6.2832);ctx.stroke();ctx.shadowBlur=0;
+  /* Glow aus drei Strichen statt shadowBlur – sieht gleich aus, kostet bei 10 Fingern aber nur einen Bruchteil */
+  ctx.strokeStyle=c;ctx.beginPath();ctx.arc(x,y,R,0,6.2832);ctx.globalAlpha=a*.16;ctx.lineWidth=22;ctx.stroke();ctx.globalAlpha=a*.3;ctx.lineWidth=13;ctx.stroke();ctx.globalAlpha=a;ctx.lineWidth=7;ctx.stroke();
   ctx.lineWidth=2;ctx.strokeStyle='#ffffff';ctx.beginPath();ctx.arc(x,y,R,0,6.2832);ctx.stroke();
   const sp=now/(o.hot?300:900)+f.ph;ctx.lineWidth=3;ctx.strokeStyle=o.hot?'#ffffff':c;ctx.setLineDash([R*.32,R*.18]);ctx.beginPath();ctx.arc(x,y,R*.74,sp,sp+6.2832);ctx.stroke();ctx.setLineDash([]);
   ctx.lineWidth=1.5;ctx.strokeStyle=rgba(c,.7);ctx.beginPath();ctx.arc(x,y,R*.5,0,6.2832);ctx.stroke();
@@ -242,28 +271,63 @@ function drawFinger(f,now,o){
 function drawBrackets(x,y,s,col){const L=Math.max(10,s*.35),t=3;ctx.fillStyle=col;
   [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{const cx=Math.round(x+sx*s),cy=Math.round(y+sy*s);ctx.fillRect(sx<0?cx:cx-L,cy-(sy<0?0:t),L,t);ctx.fillRect(cx-(sx<0?0:t),sy<0?cy:cy-L,t,L);});}
 const CROWN=['1...1...1','11.111.11','111111111','111111111','1.1.1.1.1'];
-function drawCrown(w,R,now){const s=7,x0=w.x-31.5,y0=w.y-R-62+Math.sin(now/260)*5;
-  for(let r=0;r<CROWN.length;r++)for(let c=0;c<9;c++)if(CROWN[r][c]==='1'){ctx.fillStyle=r===0||(r===4&&c%2===0)?'#ffffff':'#ffe14d';ctx.fillRect(x0+c*s,y0+r*s,s-1,s-1);}}
+function drawCrown(w,R,now){const s=7,x0=w.x-31.5,y0=crownY(w,R)+Math.sin(now/260)*5;
+  ctx.fillStyle='#1a0610';for(let r=0;r<CROWN.length;r++)for(let c=0;c<9;c++)if(CROWN[r][c]==='1')ctx.fillRect(x0+c*s-2,y0+r*s-2,s+3,s+3);
+  for(let r=0;r<CROWN.length;r++)for(let c=0;c<9;c++)if(CROWN[r][c]==='1'){ctx.fillStyle=r===0||(r===4&&c%2===0)?'#ffffff':r===2&&c%2===0&&c%8?w.col:'#ffe14d';ctx.fillRect(x0+c*s,y0+r*s,s-1,s-1);}}
 function drawFingers(now){
   if(state==='idle'||state==='waiting'){const p=state==='waiting'?Math.min(1,(now-waitStart)/WAIT):null;fingers.forEach(f=>drawFinger(f,now,{prog:p}));return;}
   if(state==='choosing'){const cur=order[hl];order.forEach(f=>{const hot=f===cur;drawFinger(f,now,{hot,scale:hot?1.32:.9,alpha:hot?1:.42,orbit:hot?12:6,jit:finalHold&&hot?5:0});});
     drawBrackets(cur.x,cur.y,baseR*(finalHold?1.9+.25*Math.sin(now/60):2.2),finalHold?'#ffffff':cur.col);return;}
-  order.forEach(f=>{if(f===winner||!f.dying)return;const t=(now-f.dying)/650;if(t<1)drawFinger(f,now,{scale:1-t,alpha:1-t,jit:10*t});});
-  const R=drawFinger(winner,now,{hot:true,scale:1.55+.1*Math.sin(now/150),orbit:16});
-  if(state==='done'||now-finaleStart>500)drawCrown(winner,R||70,now);}
+  order.forEach(f=>{if(f===winner||!f.dying)return;const t=(now-f.dying)/650;if(t<1)drawFinger(f,now,{scale:1-t,alpha:1-t,jit:10*t,col:'#8a7fb0'});});
+  crownR=drawFinger(winner,now,{hot:true,scale:1.55+.1*Math.sin(now/150),orbit:16})||70;}
+
+/* Pixel-Punktlinie von (x1,y1) nach (x2,y2); off verschiebt die Punkte entlang der Linie (Fließen) */
+function pixLine(x1,y1,x2,y2,s,gap,off,skip,end){const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy);if(L<=skip+end)return;
+  const ux=dx/L,uy=dy/L;for(let d=skip+off%gap;d<L-end;d+=gap)ctx.fillRect((x1+ux*d-s/2)|0,(y1+uy*d-s/2)|0,s,s);}
+function drawGridGlow(){let list,r0=150,hot=null;
+  if(state==='idle'||state==='waiting')list=[...fingers.values()];else if(state==='choosing'){list=order;hot=order[hl];}else{list=winner?[winner]:[];r0=260;}
+  for(const f of list){const r=f===hot?r0*1.4:r0,m=f===hot||list.length===1&&winner?0.9:0.5,x0=Math.ceil((f.x-r)/40)*40,y0=Math.ceil((f.y-r)/40)*40;
+    for(let x=x0;x<=f.x+r;x+=40)for(let y=y0;y<=f.y+r;y+=40){const q=1-Math.hypot(x-f.x,y-f.y)/r;if(q<=0)continue;const s=q>.6?4:2;
+      ctx.fillStyle=rgba(f.col,(q*q*m).toFixed(3));ctx.fillRect(x-s/2,y-s/2,s,s);}}}
+function drawIdle(now){if(state!=='idle'||fingers.size)return;const cx=W/2,cy=H/2,m=Math.min(W,H);
+  ['#ff2bd6','#00f0ff','#b026ff'].forEach((col,j)=>{const R=m*(.36+j*.07)+Math.sin(now/700+j*2)*4,n=Math.max(24,R*6.2832/14|0),rot=now/(5200+j*1800)*(j%2?-1:1);
+    ctx.fillStyle=rgba(col,(.2-j*.04).toFixed(3));for(let i=0;i<n;i++){if(i%8>5)continue;const a=rot+i/n*6.2832;ctx.fillRect((cx+Math.cos(a)*R-2)|0,(cy+Math.sin(a)*R-2)|0,4,4);}});}
+/* Energie fließt von allen Fingern in einen Kern, der sich während des Countdowns auflädt */
+function drawLinks(now){const ch=state==='choosing',list=ch?order:state==='waiting'?[...fingers.values()]:null;if(!list||list.length<2)return;
+  const p=ch?1:Math.min(1,(now-waitStart)/WAIT),c=hub(list),cur=ch?order[hl]:null,off=now/(ch?14:30);
+  for(const f of list){const hot=f===cur;ctx.fillStyle=rgba(f.col,(hot?.7:ch?.14:.14+.3*p).toFixed(3));pixLine(f.x,f.y,c.x,c.y,hot?4:3,hot?10:14,off,baseR*1.35,14);}
+  const r=7+p*9,rot=now/(ch?90:260);ctx.fillStyle=rgba(cur?cur.col:'#ffffff',.85);
+  for(let i=0;i<8;i++){const a=rot+i*.7854;ctx.fillRect((c.x+Math.cos(a)*r-2)|0,(c.y+Math.sin(a)*r-2)|0,4,4);}
+  const s=4+p*6|0;ctx.fillStyle='#ffffff';ctx.fillRect((c.x-s/2)|0,(c.y-s/2)|0,s,s);}
+/* Radarstrahl vom Kern zum markierten Finger, mit nachleuchtender Spur */
+function drawSweep(){if(state!=='choosing')return;const c=hub(order),cur=order[hl];let R=0;for(const f of order)R=Math.max(R,Math.hypot(f.x-c.x,f.y-c.y));R+=baseR*2.2;
+  const tr=finalHold?.45:1.05,n=12;
+  for(let i=0;i<n;i++){const a1=sweep-i*tr/n;ctx.fillStyle=rgba(cur.col,(.17*(1-i/n)).toFixed(3));ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.arc(c.x,c.y,R,a1-tr/n-.004,a1);ctx.closePath();ctx.fill();}
+  ctx.fillStyle=rgba('#ffffff',.55);pixLine(c.x,c.y,c.x+Math.cos(sweep)*R,c.y+Math.sin(sweep)*R,3,6,0,10,0);}
+/* Gewinner: Rest des Spielfelds abdunkeln (Spotlight) und rotierende Strahlen */
+function drawSpot(now){if(!winner||!(state==='finale'||state==='done'))return;const a=Math.min(1,(now-finaleStart)/900)*.6;
+  const g=ctx.createRadialGradient(winner.x,winner.y,baseR*3,winner.x,winner.y,Math.hypot(W,H)*.75);g.addColorStop(0,'rgba(5,1,13,0)');g.addColorStop(1,'rgba(5,1,13,'+a.toFixed(3)+')');
+  ctx.fillStyle=g;ctx.fillRect(-40,-40,W+80,H+80);}
+function drawRays(now){if(!winner||!(state==='finale'||state==='done'))return;const a=Math.min(1,(now-finaleStart)/700),L=Math.hypot(W,H),n=14,rot=now/(RM?9000:3200),x=winner.x,y=winner.y;
+  const g=ctx.createRadialGradient(x,y,baseR,x,y,L*.7);g.addColorStop(0,rgba(winner.col,(.22*a).toFixed(3)));g.addColorStop(1,rgba(winner.col,0));
+  ctx.fillStyle=g;ctx.beginPath();for(let i=0;i<n;i++){const a0=rot+i*6.2832/n;ctx.moveTo(x,y);ctx.arc(x,y,L,a0,a0+3.1416/n);ctx.closePath();}ctx.fill();}
+/* Kurzer Bildstörungs-Effekt beim Einschlag: Streifen des Canvas seitlich versetzen */
+function glitch(){ctx.setTransform(1,0,0,1,0,0);for(let i=0;i<5;i++){const h=(6+Math.random()*28)*DPR|0,y=Math.random()*(cv.height-h)|0,dx=(Math.random()-.5)*44*DPR|0;ctx.drawImage(cv,0,y,cv.width,h,dx,y,cv.width,h);}ctx.setTransform(DPR,0,0,DPR,0,0);}
 
 let last=performance.now();
 function frame(now){const dt=Math.min(50,now-last);last=now;const k=dt/16.667;
-  {const n=(state==='finale'||state==='done')?1:Math.max(fingers.size,order.length,1);const tgt=44*Math.min(1,Math.sqrt(4/n))*Math.min(1.4,Math.max(.8,Math.min(W,H)/400));baseR+=(tgt-baseR)*Math.min(1,.15*k);}
+  {const n=(state==='finale'||state==='done')?1:Math.max(fingers.size,order.length,1);baseR+=(baseTarget(n)-baseR)*Math.min(1,.15*k);}
   update(now,k);
   ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalCompositeOperation='source-over';
   ctx.fillStyle='rgba(5,1,13,.42)';ctx.fillRect(0,0,W,H);
   if(shake>0){ctx.translate((Math.random()-.5)*shake*2,(Math.random()-.5)*shake*2);shake*=Math.pow(.88,k);if(shake<.15)shake=0;}
-  drawGrid(now);
+  drawGrid(now);drawSpot(now);
   ctx.globalCompositeOperation='lighter';
   if(winner&&state==='done'){const g=ctx.createRadialGradient(winner.x,winner.y,0,winner.x,winner.y,Math.hypot(W,H)*.6);g.addColorStop(0,rgba(winner.col,.12));g.addColorStop(1,rgba(winner.col,0));ctx.fillStyle=g;ctx.fillRect(-40,-40,W+80,H+80);}
-  drawWave(now);drawRings(now);drawBeam(now);drawParts(k);drawFingers(now);
+  drawRays(now);drawGridGlow();drawIdle(now);drawWave(now);drawLinks(now);drawSweep();drawRings(now);drawBeam(now);drawParts(k);drawFingers(now);
   ctx.globalCompositeOperation='source-over';
+  if(winner&&(state==='done'||state==='finale'&&now-finaleStart>500))drawCrown(winner,crownR,now);
+  if(state==='finale'&&!RM&&now-finaleStart<520)glitch();
   if(flash>.01){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle=rgba(flashCol,flash.toFixed(3));ctx.fillRect(0,0,W,H);flash*=Math.pow(.86,k);}
   requestAnimationFrame(frame);}
 requestAnimationFrame(frame);
