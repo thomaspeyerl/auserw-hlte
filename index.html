@@ -55,7 +55,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 (()=>{
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const $=id=>document.getElementById(id);
-const msgEl=$(\'msg\'),titleEl=$('title'),seedEl=$(\'seed\'),hintEl=$('hint'),topEl=$(\'top\'),muteBtn=$('mute');
+const msgEl=$('msg'),titleEl=$('title'),seedEl=$('seed'),hintEl=$('hint'),topEl=$('top'),muteBtn=$('mute');
 const FINE=matchMedia('(hover:hover) and (pointer:fine)').matches;
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let W=0,H=0,DPR=1;
