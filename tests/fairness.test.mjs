@@ -1,4 +1,4 @@
-// Fairness- und Zufallstests für den Zufallskern aus index.html.
+// Fairness- und Zufallstests für den Zufallskern aus auserwaehlt/index.html.
 // Ausführen im Repo-Root mit:  node --test
 import test from 'node:test';
 import assert from 'node:assert/strict';

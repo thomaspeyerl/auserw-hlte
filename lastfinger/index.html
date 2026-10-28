@@ -100,6 +100,7 @@ body.gl .fx{display:none}
 .ibtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;width:44px;height:44px;padding:0;display:grid;place-items:center;border-radius:50%;color:#f3ecff;cursor:pointer;touch-action:none;
   background:rgba(14,5,30,.46);border:1px solid rgba(255,255,255,.14);box-shadow:0 0 18px rgba(176,38,255,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:color .2s,box-shadow .2s}
 #music{right:64px}
+#home{left:12px;right:auto;text-decoration:none}
 .ibtn svg{width:20px;height:20px}
 .ibtn .off,.ibtn.muted .on{display:none}
 .ibtn.muted .off{display:inline}
@@ -128,7 +129,8 @@ body.gl3d #crown{display:none}
 <circle cx="3" cy="13" r="3.2" fill="#fff"/><circle cx="36" cy="5" r="3.8" fill="#fff"/><circle cx="69" cy="13" r="3.2" fill="#fff"/>
 <path d="M12 46h48" stroke="#fff" stroke-opacity=".7" stroke-width="1.5" stroke-linecap="round"/></svg></div>
 <div id="title" data-t="ÜBERLEBT!">ÜBERLEBT!</div>
-<div class="hud" id="bottom"><a id="back" href="../">← Der Auserwählte</a><div id="seed">Jedes Spiel mit frischem Zufalls-Seed</div><div id="hint" class="pill"></div></div>
+<div class="hud" id="bottom"><a id="back" href="../">← Alle Spiele</a><div id="seed">Jedes Spiel mit frischem Zufalls-Seed</div><div id="hint" class="pill"></div></div>
+<a id="home" class="ibtn" href="../" aria-label="Zur Spiele-Auswahl"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/></svg></a>
 <button id="music" class="ibtn" aria-label="Musik an oder aus"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5.5l10-2V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="17.5" r="2.6" fill="currentColor"/><circle cx="16.5" cy="15.5" r="2.6" fill="currentColor"/><path class="off" d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
 <button id="mute" class="ibtn" aria-label="Ton an oder aus"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="on" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="off" d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
 <script id="fate">

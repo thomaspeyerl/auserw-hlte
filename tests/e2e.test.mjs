@@ -7,7 +7,7 @@ import {createRequire} from 'node:module';
 let chromium=null;
 try{({chromium}=createRequire(import.meta.url)('playwright'));}catch{}
 const skip=!chromium&&'Playwright ist nicht installiert';
-const url=new URL('../index.html',import.meta.url).href;
+const url=new URL('../auserwaehlt/index.html',import.meta.url).href;
 
 const isGL=page=>page.evaluate(()=>document.body.classList.contains('gl'));
 

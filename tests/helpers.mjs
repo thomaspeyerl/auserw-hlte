@@ -5,8 +5,8 @@ const SRC={};
 const fateSrc=file=>SRC[file]||(SRC[file]=readFileSync(new URL(file,import.meta.url),'utf8').match(/<script id="fate">([\s\S]*?)<\/script>/)[1]);
 
 // overrides ersetzt globale Namen im Kern, z. B. {crypto: undefined} für den Fallback ohne Web Crypto.
-// file wählt die Seite: '../index.html' (Der Auserwählte) oder '../lastfinger/index.html' (Last Finger Standing).
-export function loadFate(overrides={},file='../index.html'){
+// file wählt die Seite: '../auserwaehlt/index.html' (Der Auserwählte) oder '../lastfinger/index.html' (Last Finger Standing).
+export function loadFate(overrides={},file='../auserwaehlt/index.html'){
   const names=Object.keys(overrides);
   return new Function(...names,fateSrc(file)+'\nreturn Fate;')(...names.map(n=>overrides[n]));
 }
