@@ -1,4 +1,5 @@
-# Nur das Spiel ausliefern: alles ignorieren außer index.html.
+# Nur die Spiele ausliefern: alles ignorieren außer den index.html-Seiten.
 # _headers liest Wrangler unabhängig davon als Konfiguration ein.
 *
 !index.html
+!lastfinger/

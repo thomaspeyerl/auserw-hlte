@@ -4,6 +4,17 @@ Alle legen einen Finger aufs Display, ein Countdown 3 – 2 – 1 läuft (kommt 
 
 Das Spiel besteht aus einer einzigen statischen Datei (`index.html`) ohne Abhängigkeiten oder Build-Schritt.
 
+## Zweites Spiel: Last Finger Standing
+
+Unter `/lastfinger/` (Datei `lastfinger/index.html`) liegt ein eigenständiges zweites Spiel mit derselben Grafik, Musik und demselben Zufallskern:
+
+- **Start:** Finger auflegen, Countdown 3 – 2 – 1 – LOS.
+- **Runden:** In jeder Runde springt eine Bombe erst wild zwischen den Fingern umher und läuft dann aus. Wo sie landet, zischt die Lunte, und der Finger explodiert. Er scheidet aus und bekommt seinen Platz.
+- **Finale:** Die letzten zwei spielen ein Finale mit Herzschlag. Wer übrig bleibt, hat „ÜBERLEBT!“ und bekommt die Krone.
+- **Fairness:** Die komplette Ausscheide-Reihenfolge wird vorab per Fisher-Yates aus dem Seed gemischt, jede der n! Reihenfolgen ist gleich wahrscheinlich. Die Wege der Bombe entstehen erst danach und enden immer beim geplanten Opfer.
+
+Beide Spiele sind unabhängige Kopien; Änderungen an einem wirken sich nicht auf das andere aus.
+
 ## Grafik
 
 - **3D-Arena (WebGL):** Synthwave-Welt mit Horizont, gestreifter Retro-Sonne, Bergsilhouetten und einem Boden-Gitter in Perspektive, über das die Kamera fährt. Das Tempo hängt vom Spiel ab: gemächlich im Startbildschirm, Beschleunigung bei der Auswahl, fast Stillstand vor der Entscheidung, Warp-Stoß beim Gewinner. Das Gitter krümmt sich um jeden Finger.
@@ -34,7 +45,7 @@ Das Spiel läuft als Cloudflare Worker mit statischen Assets und wird über die 
 Jeder Push auf `main` löst automatisch ein neues Deployment aus.
 
 - `_headers` setzt `Cache-Control: no-cache` für alle Pfade, damit nach einem Deploy sofort die neue Version ausgeliefert wird.
-- `.assetsignore` ist eine Positivliste: ausgeliefert wird nur `index.html`, nicht `.git`, `tests/`, `README.md` oder die Konfiguration.
+- `.assetsignore` ist eine Positivliste: ausgeliefert werden nur `index.html` und `lastfinger/index.html`, nicht `.git`, `tests/`, `README.md` oder die Konfiguration.
 
 Alternativ funktioniert auch Cloudflare Pages (Connect to Git, kein Build-Befehl, Ausgabeverzeichnis `/`).
 
@@ -61,6 +72,7 @@ node --test
 ```
 
 - `tests/fairness.test.mjs` prüft den echten Zufallskern aus `index.html` mit rund 1,8 Millionen simulierten Runden. Geprüft werden: Gleichverteilung für 2–12 Spieler, kein Vorteil durch Auflege-Reihenfolge oder Anordnung, Unabhängigkeit von Startpunkt und Vorrunde, eindeutige Seeds, sfc32 gegen eine Referenzimplementierung, der Fallback ohne Web Crypto und eine Gegenprobe, die eine absichtlich eingebaute Verzerrung von 2 % erkennt.
+- `tests/lastfinger.test.mjs` und `tests/lastfinger.e2e.test.mjs` prüfen Last Finger Standing: Alle Ausscheide-Reihenfolgen sind gleich wahrscheinlich, der Sieger ist gleichverteilt und unabhängig vom Auflegen. Jede Bombe landet beim geplanten Opfer und springt nie zu Ausgeschiedenen. Dazu kommen komplette Spiele im Browser, auch mit der Ersatz-Grafik.
 - `tests/e2e.test.mjs` spielt komplette Runden in Chromium durch: Multitouch am Handy, Klicks am Desktop und die Ersatz-Grafik ohne WebGL. Er prüft, dass die sichtbare Markierung auf dem gezogenen Gewinner endet. Außerdem rendert er die Musik-Engine offline durch alle Spielphasen und prüft Lautstärke, Übersteuerung und die Stille vor der Entscheidung. Ohne installiertes [Playwright](https://playwright.dev) wird er übersprungen.
 
 Benötigt wird nur Node.js ab Version 20.

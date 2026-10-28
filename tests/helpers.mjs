@@ -1,13 +1,14 @@
-// Lädt den Zufallskern (<script id="fate">) direkt aus index.html, damit genau der ausgelieferte Code geprüft wird.
+// Lädt den Zufallskern (<script id="fate">) direkt aus den Spielseiten, damit genau der ausgelieferte Code geprüft wird.
 import {readFileSync} from 'node:fs';
 
-const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const src=html.match(/<script id="fate">([\s\S]*?)<\/script>/)[1];
+const SRC={};
+const fateSrc=file=>SRC[file]||(SRC[file]=readFileSync(new URL(file,import.meta.url),'utf8').match(/<script id="fate">([\s\S]*?)<\/script>/)[1]);
 
 // overrides ersetzt globale Namen im Kern, z. B. {crypto: undefined} für den Fallback ohne Web Crypto.
-export function loadFate(overrides={}){
+// file wählt die Seite: '../index.html' (Der Auserwählte) oder '../lastfinger/index.html' (Last Finger Standing).
+export function loadFate(overrides={},file='../index.html'){
   const names=Object.keys(overrides);
-  return new Function(...names,src+'\nreturn Fate;')(...names.map(n=>overrides[n]));
+  return new Function(...names,fateSrc(file)+'\nreturn Fate;')(...names.map(n=>overrides[n]));
 }
 
 // ---------- Statistik ----------
