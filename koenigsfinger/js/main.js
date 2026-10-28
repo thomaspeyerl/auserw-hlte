@@ -10,7 +10,7 @@ import {Net,createRoom,lobbyList,roomInfo,qrSvg,shareBase,clientId} from './net.
 
 const $=id=>document.getElementById(id);
 const Q=new URLSearchParams(location.search);
-const SPEED=Math.max(.1,+Q.get('speed')||1),AUTO=Q.has('auto'),FIXQ=+Q.get('q')||0;
+const SPEED=Math.max(.1,+Q.get('speed')||1),AUTO=Q.has('auto'),BOT=AUTO||Q.has('bot'),FIXQ=+Q.get('q')||0;
 const store={get(k,d){try{const v=localStorage.getItem('kf.'+k);return v==null?d:JSON.parse(v);}catch{return d;}},set(k,v){try{localStorage.setItem('kf.'+k,JSON.stringify(v));}catch{}}};
 const ABORT=new Error('abgebrochen');
 const emitEv=(n,d)=>dispatchEvent(new CustomEvent('kf:'+n,{detail:d}));
@@ -88,13 +88,13 @@ function choose(ids,secs){return guard(new Promise(res=>{let done=false;
   const fin=v=>{if(done)return;done=true;if(chooser===c)chooser=null;tapHandler=null;promptTimer=null;$('chips').innerHTML='';res(v);};const c={fin};chooser=c;
   tapHandler=(x,y)=>{const id=world.pickCastle(x,y,ids);if(id!=null)fin(id);};chips(ids,fin);
   if(secs)world.after(secs,()=>fin(null));
-  if(AUTO)world.after(Math.min(.5,secs*.2),()=>fin(ids[Math.floor(Math.random()*ids.length)]));}));}
+  if(BOT)world.after(Math.min(.5,secs*.2)+Math.random()*.4,()=>fin(ids[Math.floor(Math.random()*ids.length)]));}));}
 /* Bauplatz wählen */
 function choosePlace(region){return guard(new Promise(res=>{
   const tryAt=(x,y,silent)=>{const g=world.screenToGround(x,y);if(!g)return false;const err=world.canPlace(g.x,g.z,x,y,region);
     if(err){if(!silent){herald(say(err==='nah'?'tooClose':'edge'),{dur:1.8});sfx.click();buzz(60);}return false;}tapHandler=null;res(g);return true;};
   tapHandler=(x,y)=>tryAt(x,y,false);
-  if(AUTO)world.after(.3,()=>{for(let i=0;i<400;i++)if(tryAt(world.W*(.12+Math.random()*.76),world.H*(.24+Math.random()*.6),true))return;});}));}
+  if(BOT)world.after(.3+Math.random(),()=>{for(let i=0;i<400;i++)if(tryAt(world.W*(.12+Math.random()*.76),world.H*(.24+Math.random()*.6),true))return;});}));}
 
 /* ---------- Darstellung der Schritte ---------- */
 async function present(s){
@@ -413,6 +413,7 @@ addEventListener('resize',()=>world.resize());
 requestAnimationFrame(frame);
 
 /* ---------- Start ---------- */
+if(/androidplatform\.net$/.test(location.hostname))$('apkLink').classList.add('hide');
 window.__kf={world,R,get view(){return view;},get cfg(){return cfg;},present};
 goMenu();$('fade').style.opacity=0;
 if(AUTO){cfg={...DEFAULTS,...cfg};if(Q.get('attacks'))cfg.attacks=Q.get('attacks').split(',');if(Q.get('bet'))cfg.betMode=Q.get('bet');if(Q.get('match'))cfg.match=+Q.get('match');if(Q.has('nofx'))cfg.camFx=false;

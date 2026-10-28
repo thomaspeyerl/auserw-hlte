@@ -123,13 +123,13 @@ export function createAudio(ac,dest){
       const n1=G(),f1=filt('lowpass',3500,.7,n1);n1.connect(fx);f1.frequency.setValueAtTime(5000,t);f1.frequency.exponentialRampToValueAtTime(300,t+1.6);noise(t,2,f1,{brown:true});env(n1,t,.004,1.6*v,1.8);
       const n2=G(),f2=filt('highpass',1500,.7,n2);n2.connect(fx);noise(t,.5,f2);env(n2,t,.001,.6*v,.4);
       for(let i=0;i<14;i++){const tt=t+.2+Math.random()*1.4,gg=G(),ff=filt('bandpass',1500+Math.random()*3000,4,gg);gg.connect(pan(Math.random()*2-1,fx));noise(tt,.03,ff);env(gg,tt,.001,.25,.03);}},
-    fuse(t=now(),dur=1.1){const g=G(),f=filt('highpass',3000,.7,g);g.connect(fx);const s=noise(t,dur,f);const lfo=ac.createOscillator(),lg=G(.4);lfo.frequency.value=23;lfo.type='square';lfo.connect(lg);lg.connect(g.gain);lfo.start(t);lfo.stop(t+dur);g.gain.setValueAtTime(.45,t);g.gain.setValueAtTime(0,t+dur);},
+    fuse(t=now(),dur=1.1){const g=G(),f=filt('highpass',3000,.7,g);g.connect(fx);const s=noise(t,dur,f);const lfo=ac.createOscillator(),lg=G(.4);lfo.frequency.value=23;lfo.type='square';lfo.connect(lg);lg.connect(g.gain);lfo.start(t);lfo.stop(t+dur);g.gain.setValueAtTime(.22,t);g.gain.setValueAtTime(0,t+dur);},
     // Schrei: Stimme mit Tonhöhenfall durch Vokalformanten
     scream(t=now(),pitch=1,v=1){const g=G();g.connect(pan(Math.random()*1.2-.6,fx));const F=[[850,1200,2800],[700,1100,2600]][Math.random()*2|0];
       const fs=F.map((f,i)=>{const b=filt('bandpass',f*(.9+pitch*.15),i?8:5,null);b.connect(g);return b;});
       const o=ac.createOscillator();o.type='sawtooth';const f0=(260+Math.random()*120)*pitch;o.frequency.setValueAtTime(f0*.8,t);o.frequency.linearRampToValueAtTime(f0*1.25,t+.12);o.frequency.exponentialRampToValueAtTime(f0*.55,t+.9);
       const lfo=ac.createOscillator(),lg=G(f0*.05);lfo.frequency.value=7+Math.random()*4;lfo.connect(lg);lg.connect(o.frequency);fs.forEach(b=>o.connect(b));o.start(t);o.stop(t+1);lfo.start(t);lfo.stop(t+1);
-      const ng=G(),nf=filt('bandpass',2200,1.5,ng);ng.connect(g);noise(t,.9,nf);env(ng,t,.01,.12,.8);env(g,t,.03,.5*v,.85);},
+      const ng=G(),nf=filt('bandpass',2200,1.5,ng);ng.connect(g);noise(t,.9,nf);env(ng,t,.01,.12,.8);env(g,t,.03,.9*v,.85);},
     gore(t=now(),v=1){for(let i=0;i<3;i++){const tt=t+i*.07+Math.random()*.04,g=G(),f=filt('lowpass',2000,4,g);g.connect(fx);f.frequency.setValueAtTime(2400,tt);f.frequency.exponentialRampToValueAtTime(180,tt+.18);noise(tt,.22,f,{brown:true});env(g,tt,.002,1.1*v,.2);}
       const g=G();g.connect(fx);const o=osc('sine',90,t,.2,shaper(2,g));o.frequency.exponentialRampToValueAtTime(45,t+.15);env(g,t,.002,.4*v,.16);
       for(let i=0;i<8;i++){const tt=t+.2+Math.random()*.7,gg=G(),ff=filt('bandpass',500+Math.random()*700,3,gg);gg.connect(fx);noise(tt,.05,ff);env(gg,tt,.002,.2,.05);}},

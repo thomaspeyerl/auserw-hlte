@@ -1,8 +1,12 @@
-# Nur die Spiele ausliefern: alles ignorieren außer Startseite und Spiel-Ordnern.
+# Nur die Spiele ausliefern: alles ignorieren außer Startseite, Spiel-Ordnern und der Android-App.
 # _headers liest Wrangler unabhängig davon als Konfiguration ein.
 *
 !index.html
+!koenigsfinger.apk
 !auserwaehlt/
+!auserwaehlt/**
 !lastfinger/
+!lastfinger/**
 !koenigsfinger/
 !koenigsfinger/**
+koenigsfinger/_t.html
