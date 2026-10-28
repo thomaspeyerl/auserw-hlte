@@ -6,10 +6,20 @@ Das Spiel besteht aus einer einzigen statischen Datei (`index.html`) ohne Abhän
 
 ## Grafik
 
-- **WebGL-Renderer:** Ein Szene-Shader zeichnet Nebel, Sterne, ein Gitter, das sich um jeden Finger krümmt, Schockwellen, Radarstrahl, Blitze und die Finger selbst. Darüber kommen Funken und Konfetti als Partikel, Bloom in zwei Stufen und eine Nachbearbeitung mit Verzerrung, Glitch, Farbsaum, Vignette und Scanlines.
+- **3D-Arena (WebGL):** Synthwave-Welt mit Horizont, gestreifter Retro-Sonne, Bergsilhouetten und einem Boden-Gitter in Perspektive, über das die Kamera fährt. Das Tempo hängt vom Spiel ab: gemächlich im Startbildschirm, Beschleunigung bei der Auswahl, fast Stillstand vor der Entscheidung, Warp-Stoß beim Gewinner. Das Gitter krümmt sich um jeden Finger.
+- **3D-Sternenstaub:** Er fliegt auf die Kamera zu und zieht bei hoher Geschwindigkeit Warp-Streifen.
+- **3D-Krone:** Echtes Modell aus Gold mit Spiegelungen, Perlen und Edelsteinen in der Farbe des Gewinners. Sie fällt mit Federung ein und dreht sich.
+- **Effekte:** Neon-Finger, Energie-Strahlen, Radarstrahl, Blitze, Schockwellen, Funken und Konfetti, Bloom in zwei Stufen, Verzerrung, Glitch, Farbsaum, Vignette und Scanlines.
 - **Automatische Qualität:** Kommt ein Gerät nicht hinterher, senkt das Spiel die interne Auflösung von selbst.
 - **Ersatz-Grafik:** Ohne WebGL oder nach einem Absturz des Grafikkontexts schaltet das Spiel auf eine Canvas-2D-Darstellung um.
-- **Oberfläche:** Logo, Statusanzeige, Krone und Titel sind HTML/CSS (Schrift: Orbitron).
+- **Oberfläche:** Logo, Statusanzeige, Titel und Schalter sind HTML/CSS (Schrift: Orbitron).
+
+## Sound
+
+- **Live erzeugt:** Musik und Effekte entstehen live mit Web Audio, ohne Audiodateien (`<script id="music">`): Synthwave in a-Moll bei 104 BPM mit Kick, Snare, Hi-Hats, Bass, Arpeggio, Flächen, Hall und Echo.
+- **Musik folgt dem Spiel:** ruhig im Startbildschirm, Riser im Countdown, treibender Beat bei der Auswahl (der Filter öffnet sich mit jedem Sprung), Stille mit Herzschlag vor der Entscheidung, Einschlag und Siegesmelodie beim Gewinner.
+- **Schalter:** Musik und Ton lassen sich getrennt abschalten; die Einstellung wird gespeichert.
+- **Vibration:** Auf Geräten, die es unterstützen, vibriert das Handy im Takt der Herzschläge und beim Gewinner.
 
 ## Deploy auf Cloudflare
 
@@ -51,6 +61,6 @@ node --test
 ```
 
 - `tests/fairness.test.mjs` prüft den echten Zufallskern aus `index.html` mit rund 1,8 Millionen simulierten Runden. Geprüft werden: Gleichverteilung für 2–12 Spieler, kein Vorteil durch Auflege-Reihenfolge oder Anordnung, Unabhängigkeit von Startpunkt und Vorrunde, eindeutige Seeds, sfc32 gegen eine Referenzimplementierung, der Fallback ohne Web Crypto und eine Gegenprobe, die eine absichtlich eingebaute Verzerrung von 2 % erkennt.
-- `tests/e2e.test.mjs` spielt komplette Runden in Chromium durch: Multitouch am Handy, Klicks am Desktop und die Ersatz-Grafik ohne WebGL. Er prüft, dass die sichtbare Markierung auf dem gezogenen Gewinner endet. Ohne installiertes [Playwright](https://playwright.dev) wird er übersprungen.
+- `tests/e2e.test.mjs` spielt komplette Runden in Chromium durch: Multitouch am Handy, Klicks am Desktop und die Ersatz-Grafik ohne WebGL. Er prüft, dass die sichtbare Markierung auf dem gezogenen Gewinner endet. Außerdem rendert er die Musik-Engine offline durch alle Spielphasen und prüft Lautstärke, Übersteuerung und die Stille vor der Entscheidung. Ohne installiertes [Playwright](https://playwright.dev) wird er übersprungen.
 
 Benötigt wird nur Node.js ab Version 20.

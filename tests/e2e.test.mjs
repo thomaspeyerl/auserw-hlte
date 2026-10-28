@@ -63,6 +63,36 @@ test('Desktop: Klick-Runden mit drei Punkten, jede Runde mit neuem Seed',{skip,t
   }finally{await browser.close();}
 });
 
+test('Musik-Engine: alle Spielphasen offline gerendert – hörbar, ohne Übersteuerung, Stille vor der Entscheidung',{skip,timeout:90000},async t=>{
+  const browser=await chromium.launch();
+  try{
+    const {page,errors}=await open(browser,{viewport:{width:400,height:400}});
+    const r=await page.evaluate(async()=>{
+      const sr=44100,ac=new OfflineAudioContext(2,sr*17,sr),e=Music.create(ac,ac.destination);
+      // Ablauf wie im Spiel: Leerlauf, Countdown, Auswahl mit steigender Energie, Herzschlag-Stille, Gewinner
+      e.mode('idle',0);e.schedule(4);
+      e.mode('wait',4);e.sfx.tick(0,4.2);e.schedule(5.5);
+      e.mode('choose',5.5);e.sfx.start(5.5);for(let i=0;i<40;i++){const tt=5.6+i*.11;e.energy(i/40);e.sfx.hop(i/40,tt);e.schedule(tt);}e.schedule(10);
+      e.mode('hold',10);[0,.38,.9,1.15].forEach(d=>e.sfx.beat(10+d));e.schedule(11.5);
+      e.mode('finale',11.5);e.sfx.impact(11.5);e.sfx.crown(12.05);e.sfx.firework(14);e.sfx.place(3,15);e.sfx.remove(15.5);e.schedule(17);
+      const buf=await ac.startRendering(),L=buf.getChannelData(0),R=buf.getChannelData(1);
+      const seg=(a,b)=>{let p=0,s=0,nan=0;for(let i=a*sr|0;i<(b*sr|0);i++){const v=Math.max(Math.abs(L[i]),Math.abs(R[i]));if(Number.isNaN(v))nan++;else{p=Math.max(p,v);s+=L[i]*L[i];}}return {peak:p,rms:Math.sqrt(s/((b-a)*sr)),nan};};
+      // Musik allein in der Haltephase: gleiche Folge ohne Herzschlag rendern
+      const ac2=new OfflineAudioContext(2,sr*12,sr),e2=Music.create(ac2,ac2.destination);
+      e2.mode('choose',0);e2.energy(1);e2.schedule(8);e2.mode('hold',8);e2.schedule(12);
+      const b2=await ac2.startRendering(),L2=b2.getChannelData(0),rms=(a,b)=>{let s=0;for(let i=a*sr|0;i<(b*sr|0);i++)s+=L2[i]*L2[i];return Math.sqrt(s/((b-a)*sr));};
+      return {idle:seg(.5,4),choose:seg(6,10),hold:seg(10,11.5),finale:seg(11.5,17),all:seg(0,17),musicChoose:rms(4,8),musicHold:rms(9,12)};
+    });
+    t.diagnostic(`RMS Leerlauf ${r.idle.rms.toFixed(3)}, Auswahl ${r.choose.rms.toFixed(3)}, Gewinner ${r.finale.rms.toFixed(3)}; Spitze gesamt ${r.all.peak.toFixed(3)}; Musik Auswahl ${r.musicChoose.toFixed(3)} → Haltephase ${r.musicHold.toFixed(4)}`);
+    assert.equal(r.all.nan,0,'keine ungültigen Samples');
+    assert.ok(r.all.peak<1,`Übersteuerung: Spitze ${r.all.peak}`);
+    for(const k of ['idle','choose','finale'])assert.ok(r[k].rms>.01,`${k} zu leise: ${r[k].rms}`);
+    assert.ok(r.choose.rms>r.idle.rms*1.8,`die Auswahl muss deutlich treibender sein als der Leerlauf: ${r.choose.rms} vs ${r.idle.rms}`);
+    assert.ok(r.musicHold<r.musicChoose*.25,`vor der Entscheidung muss die Musik fast verstummen: ${r.musicHold} vs ${r.musicChoose}`);
+    assert.deepEqual(errors,[]);
+  }finally{await browser.close();}
+});
+
 test('Ohne WebGL: Ersatz-Grafik mit Canvas 2D spielt eine komplette Runde',{skip,timeout:90000},async()=>{
   const browser=await chromium.launch({args:['--disable-3d-apis']});
   try{
