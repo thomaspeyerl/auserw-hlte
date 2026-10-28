@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1a110a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Königsfinger</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%91%91%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{--ink:#3a2412;--ink2:#6b4423;--parch:#f1e2bf;--parch2:#e2c993;--wood:#4a2c16;--wood2:#2e1a0c;--gold:#e8b84a;--gold2:#a8741c;--blood:#8e1414;
+  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#120b06;color:var(--ink);font-family:'IM Fell English',Georgia,serif;user-select:none;-webkit-user-select:none;touch-action:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+button,input,select{font:inherit;color:inherit}
+.hide{display:none!important}
+
+/* ---------- Holzknöpfe und Pergament ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;min-height:48px;padding:.55em 1.2em;border:2px solid #1c0f05;border-radius:10px;cursor:pointer;
+  font-family:'Cinzel',serif;font-weight:700;font-size:1.05rem;letter-spacing:.04em;color:#fbe9c0;text-shadow:0 1px 0 #000;
+  background:linear-gradient(#7a4a24,#4a2a12 55%,#3a200c);box-shadow:inset 0 1px 0 #a8703f,inset 0 -3px 0 #24130a,0 3px 0 #140a03,0 6px 14px #0008;transition:transform .08s}
+.btn:active{transform:translateY(2px);box-shadow:inset 0 1px 0 #a8703f,inset 0 -1px 0 #24130a,0 1px 0 #140a03}
+.btn.gold{color:#3a2208;text-shadow:0 1px 0 #ffe9a8;background:linear-gradient(#ffe08a,#e2a93a 55%,#b47a1e);border-color:#5a3a0a;box-shadow:inset 0 1px 0 #fff3c4,inset 0 -3px 0 #8a5a12,0 3px 0 #3a2404,0 6px 14px #0008}
+.btn.red{background:linear-gradient(#b2332a,#7c1a14 55%,#5a100c);box-shadow:inset 0 1px 0 #e06a5c,inset 0 -3px 0 #3a0806,0 3px 0 #200403,0 6px 14px #0008}
+.btn.small{min-height:38px;padding:.3em .8em;font-size:.88rem}
+.btn:disabled{filter:grayscale(.8) brightness(.7);pointer-events:none}
+.parch{position:relative;background:radial-gradient(ellipse at 30% 20%,#fbf1d6,var(--parch) 45%,var(--parch2));color:var(--ink);border-radius:6px;
+  box-shadow:0 0 0 2px #8a6a3a,0 0 0 5px #3a2412,0 18px 50px #000c,inset 0 0 40px #b8925066,inset 0 0 6px #8a6a3a}
+.parch::before{content:"";position:absolute;inset:7px;border:1.5px solid #8a6a3a88;border-radius:3px;pointer-events:none}
+h1,h2,h3{font-family:'Cinzel Decorative','Cinzel',serif;margin:0;color:var(--blood);letter-spacing:.03em}
+.lead{font-style:italic;color:var(--ink2)}
+
+/* ---------- Bildschirme (Pergamentrollen über der 3D-Welt) ---------- */
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(64px + var(--safe-t)) 14px calc(14px + var(--safe-b));z-index:20;overflow:auto;touch-action:pan-y}
+.screen.dim{background:radial-gradient(ellipse,#0006,#000b)}
+.card{width:min(560px,100%);max-height:100%;overflow:auto;padding:26px 22px 22px;touch-action:pan-y}
+.card h2{font-size:1.55rem;text-align:center;margin-bottom:.4em}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.center{text-align:center;justify-content:center}
+
+#menu .card{background:none;box-shadow:none;text-align:center;width:min(420px,100%)}
+#menu .card::before{display:none}
+.logo{font-family:'Cinzel Decorative',serif;font-weight:900;font-size:clamp(2.4rem,11vw,4.2rem);line-height:.95;color:#ffd979;
+  text-shadow:0 2px 0 #7a4a10,0 4px 0 #3a2008,0 0 30px #ffb34088,0 10px 30px #000;margin:0 0 .1em}
+.sub{font-family:'Cinzel',serif;color:#f6e4b8;text-shadow:0 2px 6px #000;letter-spacing:.2em;font-size:.9rem;margin-bottom:1.6em}
+.crownsvg{width:84px;height:62px;filter:drop-shadow(0 4px 10px #000)}
+#menu .btn{width:100%;white-space:nowrap}#menu .btn.small{font-size:.8rem;padding:.3em .5em}
+
+/* Spielerliste */
+.plist{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.pl{display:flex;gap:8px;align-items:center}
+.pl .n{flex:0 0 1.6em;font-family:'Cinzel',serif;font-weight:700;color:var(--ink2);text-align:right}
+.pl input,.field{flex:1;min-width:0;min-height:44px;padding:.35em .7em;border:2px solid #8a6a3a;border-radius:6px;background:#fff8e6;font-size:1.1rem;user-select:text;-webkit-user-select:text}
+.pl input:focus,.field:focus{outline:none;border-color:var(--blood);box-shadow:0 0 0 3px #8e141433}
+.pl .x{flex:0 0 40px;height:40px;border-radius:50%;border:2px solid #8a6a3a;background:#ead3a0;cursor:pointer;font-size:1.2rem;color:var(--blood)}
+.opt{border-top:1px dashed #8a6a3a88;padding-top:10px;margin-top:6px}
+.opt h3{font-size:1rem;color:var(--ink2);margin-bottom:6px;font-family:'Cinzel',serif}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0}
+.seg span{display:inline-block;padding:.45em .8em;border:2px solid #8a6a3a;border-radius:20px;background:#f8ecd0;cursor:pointer;font-size:.98rem}
+.seg input:checked+span{background:var(--wood);color:#fbe9c0;border-color:#1c0f05}
+.err{color:var(--blood);min-height:1.2em;font-style:italic;text-align:center}
+
+/* ---------- HUD ---------- */
+.ibtn{position:fixed;z-index:30;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:2px solid #1c0f05;
+  background:radial-gradient(circle at 40% 30%,#8a5a2c,#4a2a12 70%);box-shadow:inset 0 1px 0 #b07a44,0 3px 8px #000a;color:#fbe9c0;text-decoration:none}
+.ibtn svg{width:22px;height:22px}
+#home{top:calc(10px + var(--safe-t));left:10px}
+#pauseBtn{top:calc(10px + var(--safe-t));right:10px}
+#soundBtn{top:calc(10px + var(--safe-t));right:64px}
+#helpBtn{top:calc(10px + var(--safe-t));right:118px}
+#seed{position:fixed;left:10px;bottom:calc(6px + var(--safe-b));z-index:15;font:11px/1.2 monospace;color:#fff8;text-shadow:0 1px 2px #000;pointer-events:none}
+#netState{position:fixed;right:10px;bottom:calc(6px + var(--safe-b));z-index:15;font:12px/1.2 'Cinzel',serif;color:#ffd979;text-shadow:0 1px 2px #000;pointer-events:none}
+
+/* Herold-Spruchband */
+#herald{position:fixed;left:50%;top:calc(66px + var(--safe-t));transform:translateX(-50%) translateY(-20px);width:min(92vw,620px);z-index:18;opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;text-align:center}
+#herald.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#herald .scroll{display:inline-block;padding:12px 26px 13px;font-size:clamp(1.02rem,4vw,1.32rem);line-height:1.25;border-radius:4px}
+#herald .scroll::before{inset:5px}
+#herald .who{display:block;font:700 .7rem 'Cinzel',serif;letter-spacing:.25em;color:var(--blood);margin-bottom:2px}
+
+/* Aufforderung unten (Bauen, Wetten) */
+#prompt{position:fixed;left:50%;bottom:calc(12px + var(--safe-b));transform:translateX(-50%);width:min(96vw,640px);z-index:19;padding:14px 16px 12px;text-align:center}
+#prompt .t{font-size:clamp(1.05rem,4.4vw,1.3rem);font-family:'Cinzel',serif;font-weight:700;color:var(--ink)}
+#prompt .t b{color:var(--blood)}
+#timer{height:8px;margin:8px 4px 4px;border-radius:5px;background:#8a6a3a55;overflow:hidden}
+#timer i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#8e1414,#d64a1a);transform-origin:left;border-radius:5px}
+#chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:40px;padding:.2em .7em .2em .3em;border-radius:22px;border:2px solid #1c0f05;cursor:pointer;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:.92rem;text-shadow:0 1px 2px #000;box-shadow:0 2px 0 #0008}
+.chip .ic{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#fff3;font-size:1.05rem}
+.chip.sel{outline:3px solid var(--gold);outline-offset:2px}
+
+/* Namensschilder über den Burgen */
+#labels{position:fixed;inset:0;z-index:12;pointer-events:none}
+.lab{position:absolute;left:0;top:0;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;transition:opacity .3s}
+.lab .nm{display:flex;align-items:center;gap:4px;padding:2px 9px 2px 4px;border-radius:14px;border:1.5px solid #000a;font:700 13px 'Cinzel',serif;color:#fff;text-shadow:0 1px 2px #000;box-shadow:0 2px 6px #0008}
+.lab .ic{font-size:14px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:#fff3}
+.lab .tw{font-size:11px;letter-spacing:1px;color:#ffd979;text-shadow:0 1px 2px #000}
+.lab .tw .d{opacity:.25;filter:grayscale(1)}
+.lab .bets{display:flex;gap:2px}
+.lab .tok{width:22px;height:22px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;font-size:12px;box-shadow:0 2px 4px #000a;animation:pop .35s cubic-bezier(.3,1.8,.5,1)}
+.lab.dead .nm{filter:grayscale(.7) brightness(.7)}
+.lab.me .nm{outline:2px solid var(--gold);outline-offset:1px}
+@keyframes pop{from{transform:scale(0)}}
+
+/* Großer Countdown */
+#count{position:fixed;inset:0;display:grid;place-items:center;z-index:17;pointer-events:none;font-family:'Cinzel Decorative',serif;font-weight:900;font-size:clamp(4rem,26vw,10rem);color:#ffd979;
+  text-shadow:0 4px 0 #7a4a10,0 8px 0 #3a2008,0 0 40px #ff9a2a,0 14px 30px #000}
+#count span{animation:cnt .9s ease-out both}
+#count span.go{color:#ff5a3a;font-size:.6em;text-shadow:0 4px 0 #6a1008,0 0 40px #ff3a1a,0 14px 30px #000}
+@keyframes cnt{0%{transform:scale(2.4);opacity:0}25%{transform:scale(1);opacity:1}80%{opacity:1}100%{transform:scale(.85);opacity:0}}
+
+/* Ergebnisrolle */
+.rank{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.rk{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:#fff6}
+.rk .pos{font:900 1.15rem 'Cinzel',serif;width:1.8em;text-align:center;color:var(--ink2)}
+.rk.k{background:linear-gradient(90deg,#ffe08a,#fff3c4);box-shadow:0 0 0 2px var(--gold2)}
+.rk .sw{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:2px solid #0006}
+.rk .nm{flex:1;font-family:'Cinzel',serif;font-weight:700}
+.rk .ex{font-size:.85rem;color:var(--ink2);font-style:italic;text-align:right}
+
+/* Regeln */
+.rules{font-size:1.05rem;line-height:1.4}
+.rules p{margin:.45em 0}
+.rules .atk{display:grid;grid-template-columns:2.2em 1fr;gap:6px 8px;align-items:start;margin:.6em 0}
+.rules .atk b{font-family:'Cinzel',serif}
+.rules .big{font-size:1.6rem;text-align:center}
+
+/* Ruhmeshalle */
+.hall{width:100%;border-collapse:collapse;font-size:1rem}
+.hall th{font-family:'Cinzel',serif;font-size:.8rem;color:var(--ink2);text-align:left;border-bottom:2px solid #8a6a3a;padding:4px}
+.hall td{padding:6px 4px;border-bottom:1px dashed #8a6a3a66}
+.hall td.c{text-align:center}
+
+/* Online */
+.code{font:900 2.6rem 'Cinzel',serif;letter-spacing:.25em;color:var(--blood);text-align:center}
+.qr{width:170px;height:170px;margin:0 auto;background:#fff;padding:6px;border-radius:6px;border:2px solid #8a6a3a}
+.qr svg{width:100%;height:100%;display:block}
+.mem{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff6;border-radius:6px;font-family:'Cinzel',serif;font-weight:700}
+.mem .dot{width:10px;height:10px;border-radius:50%;background:#2a8a2a}
+.mem.off .dot{background:#999}
+.rooms{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto}
+.room{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff6;border-radius:6px;cursor:pointer}
+.room b{font-family:'Cinzel',serif;letter-spacing:.12em;color:var(--blood)}
+.room span{flex:1}
+#nogl{z-index:40}
+#fade{position:fixed;inset:0;background:#000;z-index:50;pointer-events:none;opacity:1;transition:opacity .9s}
+@media (orientation:landscape) and (max-height:500px){
+  #herald{top:calc(8px + var(--safe-t));width:min(60vw,560px)}
+  #prompt{padding:8px 12px;width:min(70vw,640px)}
+  .card{padding:16px 16px 14px}
+  .logo{font-size:2.6rem}.sub{margin-bottom:.8em}
+}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="count"></div>
+<div id="herald"><div class="scroll parch"><span class="who">Der Herold</span><span id="heraldText"></span></div></div>
+
+<a id="home" class="ibtn" href="../" aria-label="Zur Spiele-Auswahl"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></a>
+<button id="pauseBtn" class="ibtn hide" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg></button>
+<button id="soundBtn" class="ibtn" aria-label="Ton an/aus"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="snd1" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path id="snd0" class="hide" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+<button id="helpBtn" class="ibtn" aria-label="Regeln"><svg viewBox="0 0 24 24"><text x="12" y="18" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="17" fill="currentColor">?</text></svg></button>
+<div id="seed"></div><div id="netState"></div>
+
+<div id="prompt" class="parch hide"><div class="t" id="promptText"></div><div id="timer" class="hide"><i></i></div><div id="chips"></div></div>
+
+<!-- Hauptmenü -->
+<div id="menu" class="screen">
+  <div class="card">
+    <svg class="crownsvg" viewBox="0 0 84 62"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#e8b84a"/><stop offset="1" stop-color="#9a6414"/></linearGradient></defs>
+      <path d="M6 52 L4 16 L22 34 L42 6 L62 34 L80 16 L78 52 Z" fill="url(#cg)" stroke="#5a3a0a" stroke-width="2.5" stroke-linejoin="round"/><rect x="5" y="50" width="74" height="9" rx="2" fill="url(#cg)" stroke="#5a3a0a" stroke-width="2.5"/>
+      <circle cx="42" cy="38" r="5" fill="#c81e1e" stroke="#5a0a0a" stroke-width="1.5"/><circle cx="22" cy="42" r="3.5" fill="#2a6ad6"/><circle cx="62" cy="42" r="3.5" fill="#2a9a4a"/></svg>
+    <div class="logo">Königs&shy;finger</div>
+    <div class="sub">WER ZULETZT STEHT, TRÄGT DIE KRONE</div>
+    <div class="col">
+      <button class="btn gold" id="bOffline">⚔ Am Tisch spielen</button>
+      <button class="btn" id="bOnline">🌐 Online spielen</button>
+      <div class="row" style="flex-wrap:nowrap"><button class="btn small" style="flex:1" id="bHall">🏆 Ruhmeshalle</button><button class="btn small" style="flex:1" id="bRules">📜 Regeln</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Spieler und Einstellungen (am Tisch) -->
+<div id="setup" class="screen dim hide">
+  <div class="card parch">
+    <h2>Wer kämpft mit?</h2>
+    <p class="lead center" style="text-align:center;margin:.2em 0">2 bis 8 Herrschaften – Namen sind Pflicht.</p>
+    <div class="plist" id="plist"></div>
+    <div class="row center"><button class="btn small" id="bAdd">＋ Spieler</button></div>
+    <div id="settingsBox"></div>
+    <div class="err" id="setupErr"></div>
+    <div class="row" style="flex-wrap:nowrap"><button class="btn" id="bSetupBack">←</button><button class="btn gold" style="flex:1" id="bStart">Burgen bauen!</button></div>
+  </div>
+</div>
+
+<template id="settingsTpl">
+  <div class="opt"><h3>Angreifer (kombinierbar)</h3><div class="seg" data-k="attacks">
+    <label><input type="checkbox" value="katapult"><span>🪨 Katapult</span></label><label><input type="checkbox" value="drache"><span>🐉 Drache</span></label>
+    <label><input type="checkbox" value="pulver"><span>🛢️ Pulverfass</span></label><label><input type="checkbox" value="fluch"><span>🌩️ Fluch</span></label></div></div>
+  <div class="opt"><h3>Wetten</h3><div class="seg" data-k="betMode">
+    <label><input type="radio" name="bm" value="round"><span>Jede Runde (Schild)</span></label><label><input type="radio" name="bm" value="start"><span>Nur am Anfang (Königswette)</span></label></div></div>
+  <div class="opt"><h3>Partie</h3><div class="seg" data-k="match">
+    <label><input type="radio" name="mt" value="1"><span>Einzelspiel</span></label><label><input type="radio" name="mt" value="3"><span>Best of 3</span></label><label><input type="radio" name="mt" value="5"><span>Best of 5</span></label></div></div>
+  <div class="opt"><h3>Kamera</h3><div class="seg" data-k="camFx">
+    <label><input type="radio" name="cf" value="1"><span>Wackeln & Zoom</span></label><label><input type="radio" name="cf" value="0"><span>Ruhig</span></label></div></div>
+</template>
+
+<!-- Online -->
+<div id="online" class="screen dim hide">
+  <div class="card parch col">
+    <h2>Online spielen</h2>
+    <div class="pl"><input id="myName" class="field" maxlength="16" placeholder="Euer Name" autocomplete="off"></div>
+    <div class="row" style="flex-wrap:nowrap"><button class="btn gold" style="flex:1" id="bCreate">Raum erstellen</button></div>
+    <div class="seg center"><label><input type="checkbox" id="pubRoom" checked><span>In der öffentlichen Lobby zeigen</span></label></div>
+    <div class="opt"><h3>Mit Code beitreten</h3><div class="row" style="flex-wrap:nowrap"><input id="joinCode" class="field" maxlength="4" placeholder="ABCD" autocomplete="off" style="text-transform:uppercase;letter-spacing:.3em;font-family:Cinzel,serif;font-weight:700"><button class="btn" id="bJoin">Beitreten</button></div></div>
+    <div class="opt"><h3>Öffentliche Lobby</h3><div class="rooms" id="rooms"><i class="lead">Suche Räume…</i></div></div>
+    <div class="err" id="onErr"></div>
+    <button class="btn" id="bOnBack">← Zurück</button>
+  </div>
+</div>
+
+<!-- Raum -->
+<div id="room" class="screen dim hide">
+  <div class="card parch col">
+    <h2>Raum</h2>
+    <div class="code" id="roomCode">----</div>
+    <div class="qr" id="roomQr"></div>
+    <p class="lead center" style="text-align:center;margin:0">Scannt den Code oder gebt ihn unter „Online spielen“ ein.</p>
+    <div class="col" id="members"></div>
+    <div id="roomSettings"></div>
+    <div class="err" id="roomErr"></div>
+    <div class="row" style="flex-wrap:nowrap"><button class="btn" id="bLeave">Verlassen</button><button class="btn gold" style="flex:1" id="bRoomStart">Spiel starten</button></div>
+  </div>
+</div>
+
+<!-- Ruhmeshalle -->
+<div id="hall" class="screen dim hide">
+  <div class="card parch col">
+    <h2>🏆 Ruhmeshalle</h2>
+    <div id="hallBody"></div>
+    <div class="row" style="flex-wrap:nowrap"><button class="btn" style="flex:1" id="bHallBack">← Zurück</button><button class="btn small red" id="bHallClear">Löschen</button></div>
+  </div>
+</div>
+
+<!-- Regeln -->
+<div id="rules" class="screen dim hide">
+  <div class="card parch rules">
+    <h2>📜 Die Regeln</h2>
+    <p class="big">🏰🏰🏰 → 👑</p>
+    <p>Jeder Spieler <b>baut eine Burg</b>: reihum tippt jeder dorthin, wo sie stehen soll. Danach braucht’s keine Finger mehr am Handy.</p>
+    <p>Jede Burg hat <b>drei Türme – drei Leben</b>. Jeder Treffer kostet einen Turm. Ist der letzte Turm hin, fällt die Burg. <b>Wer als Letzter steht, wird König.</b></p>
+    <p>Jede Runde: <b>Wetten → Countdown → Angriff → Auswertung</b>. Später schlagen pro Runde mehrere Geschosse ein.</p>
+    <p><b>Wetten:</b> Tippt, welche Burg diese Runde getroffen wird. Wer richtig liegt, bekommt einen <b>Schutzschild</b> für die nächste Runde. Gefallene spielen als <b>Geister</b> weiter und sammeln Geisterpunkte.</p>
+    <div class="atk"><span>🪨</span><span><b>Katapult</b> – trifft eine Burg.</span>
+      <span>🐉</span><span><b>Drache</b> – fliegt eine gerade Linie und verbrennt jede Burg darauf. Wo Ihr baut, zählt!</span>
+      <span>🛢️</span><span><b>Pulverfass</b> – trifft eine Burg, mit 25 % Chance springt es auf eine zweite über.</span>
+      <span>🌩️</span><span><b>Fluch</b> – trifft die Burg mit den meisten Türmen und <b>durchbricht jeden Schild</b>.</span></div>
+    <p>Fallen alle übrigen Burgen gleichzeitig, gibt es ein <b>Stechen</b>: sie stehen mit einem Turm wieder auf.</p>
+    <p class="lead">Ziele werden fair und nachprüfbar ausgelost – der Seed steht unten links.</p>
+    <div class="row center"><button class="btn gold" id="bRulesOk">Verstanden!</button></div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="screen dim hide">
+  <div class="card parch col center" style="width:min(360px,100%);text-align:center">
+    <h2>Pause</h2>
+    <button class="btn gold" id="bResume">Weiter</button>
+    <button class="btn red" id="bAbort">Partie abbrechen</button>
+  </div>
+</div>
+
+<!-- Ergebnis -->
+<div id="result" class="screen dim hide">
+  <div class="card parch col">
+    <h2 id="resTitle">Lang lebe der König!</h2>
+    <div id="resMatch" class="center lead" style="text-align:center"></div>
+    <div class="rank" id="resRank"></div>
+    <div id="resExtra" class="lead"></div>
+    <div class="row" style="flex-wrap:nowrap"><button class="btn" id="bResMenu">Menü</button><button class="btn gold" style="flex:1" id="bResNext">Nochmal!</button></div>
+  </div>
+</div>
+
+<div id="nogl" class="screen dim hide"><div class="card parch center" style="text-align:center"><h2>Oje!</h2><p>Euer Gerät kann leider kein WebGL2 – ohne geht’s bei den Burgen ned.</p><a class="btn" href="../">← Andere Spiele</a></div></div>
+<div id="fade"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
