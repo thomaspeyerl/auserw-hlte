@@ -22,12 +22,14 @@ async function open(browser,opts){
 const nextResult=(page,n)=>page.waitForFunction(n=>__results.length>=n,n,{timeout:60000}).then(()=>page.evaluate(n=>__results[n-1],n));
 const msg=page=>page.$eval('#msg',e=>e.textContent);
 
-test('Handy: vier Finger gleichzeitig, sichtbare Markierung endet auf dem gezogenen Gewinner',{skip,timeout:150000},async()=>{
+test('Handy: vier Finger gleichzeitig, Countdown 3–2–1, sichtbare Markierung endet auf dem gezogenen Gewinner',{skip,timeout:150000},async()=>{
   const browser=await chromium.launch();
   try{
     const {page,errors}=await open(browser,{viewport:{width:390,height:844},hasTouch:true,isMobile:true});
     assert.equal(await isGL(page),true,'WebGL-Grafik sollte aktiv sein');
     const cdp=await page.context().newCDPSession(page);
+    // Countdown mitschreiben: jede neu angezeigte Zahl bzw. „LOS!“
+    await page.evaluate(()=>{window.__count=[];const el=document.getElementById('count');new MutationObserver(()=>{const t=el.textContent;if(t&&__count[__count.length-1]!==t)__count.push(t);}).observe(el,{childList:true,subtree:true});});
     const touchPoints=[[90,230],[300,300],[120,560],[280,640]].map(([x,y],id)=>({x,y,id}));
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints});
     assert.match(await msg(page),/4 Spieler/);
@@ -35,6 +37,7 @@ test('Handy: vier Finger gleichzeitig, sichtbare Markierung endet auf dem gezoge
     assert.equal(r.players,4);
     assert.ok(r.winner>=0&&r.winner<4);
     assert.equal(r.highlighted,r.winner,'Markierung und gezogener Gewinner müssen übereinstimmen');
+    assert.deepEqual(await page.evaluate(()=>__count),['3','2','1','LOS!'],'Countdown 3 – 2 – 1 – LOS!');
     assert.match(r.seed,/^[0-9A-F]{32}$/);
     assert.equal(await page.$eval('#title',e=>e.className),'show');
     // Alle Finger loslassen → nächste Runde beginnt von vorn
@@ -71,7 +74,7 @@ test('Musik-Engine: alle Spielphasen offline gerendert – hörbar, ohne Überst
       const sr=44100,ac=new OfflineAudioContext(2,sr*17,sr),e=Music.create(ac,ac.destination);
       // Ablauf wie im Spiel: Leerlauf, Countdown, Auswahl mit steigender Energie, Herzschlag-Stille, Gewinner
       e.mode('idle',0);e.schedule(4);
-      e.mode('wait',4);e.sfx.tick(0,4.2);e.schedule(5.5);
+      e.mode('wait',4,1.5);e.sfx.count(0,4.1);e.sfx.count(1,4.6);e.sfx.count(2,5.1);e.sfx.go(5.5);e.schedule(5.5);
       e.mode('choose',5.5);e.sfx.start(5.5);for(let i=0;i<40;i++){const tt=5.6+i*.11;e.energy(i/40);e.sfx.hop(i/40,tt);e.schedule(tt);}e.schedule(10);
       e.mode('hold',10);[0,.38,.9,1.15].forEach(d=>e.sfx.beat(10+d));e.schedule(11.5);
       e.mode('finale',11.5);e.sfx.impact(11.5);e.sfx.crown(12.05);e.sfx.firework(14);e.sfx.place(3,15);e.sfx.remove(15.5);e.schedule(17);

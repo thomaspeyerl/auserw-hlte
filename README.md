@@ -1,6 +1,6 @@
 # Der Auserwählte – Neon-Fingerwähler für 2–10+ Finger
 
-Alle legen einen Finger aufs Display, kurz still halten – das Schicksal wählt per frischem Zufalls-Seed einen Auserwählten. Am Desktop setzt ein Klick einen Punkt, ein Klick auf den Punkt entfernt ihn.
+Alle legen einen Finger aufs Display, ein Countdown 3 – 2 – 1 läuft (kommt ein Finger dazu oder geht einer weg, beginnt er neu) – dann wählt das Schicksal per frischem Zufalls-Seed einen Auserwählten. Am Desktop setzt ein Klick einen Punkt, ein Klick auf den Punkt entfernt ihn.
 
 Das Spiel besteht aus einer einzigen statischen Datei (`index.html`) ohne Abhängigkeiten oder Build-Schritt.
 
@@ -17,7 +17,7 @@ Das Spiel besteht aus einer einzigen statischen Datei (`index.html`) ohne Abhän
 ## Sound
 
 - **Live erzeugt:** Musik und Effekte entstehen live mit Web Audio, ohne Audiodateien (`<script id="music">`): Synthwave in a-Moll bei 104 BPM mit Kick, Snare, Hi-Hats, Bass, Arpeggio, Flächen, Hall und Echo.
-- **Musik folgt dem Spiel:** ruhig im Startbildschirm, Riser im Countdown, treibender Beat bei der Auswahl (der Filter öffnet sich mit jedem Sprung), Stille mit Herzschlag vor der Entscheidung, Einschlag und Siegesmelodie beim Gewinner.
+- **Musik folgt dem Spiel:** ruhig im Startbildschirm, Riser und Pieptöne im Countdown, treibender Beat bei der Auswahl (der Filter öffnet sich mit jedem Sprung), Stille mit Herzschlag vor der Entscheidung, Einschlag und Siegesmelodie beim Gewinner.
 - **Schalter:** Musik und Ton lassen sich getrennt abschalten; die Einstellung wird gespeichert.
 - **Vibration:** Auf Geräten, die es unterstützen, vibriert das Handy im Takt der Herzschläge und beim Gewinner.
 
