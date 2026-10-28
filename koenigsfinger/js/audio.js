@@ -158,6 +158,26 @@ export function createAudio(ac,dest){
       for(let i=0;i<14;i++){const tt=b+.1+Math.random()*.9,gg=G(),ff=filt('highpass',4000,1,gg);gg.connect(pan(Math.random()*2-1,fx));noise(tt,.02,ff);env(gg,tt,.001,.2,.015);}},
     heartbeat(t=now(),v=1){[0,.22].forEach((d,i)=>{const g=G();g.connect(fx);const o=osc('sine',i?70:82,t+d,.25,shaper(2,g));o.frequency.exponentialRampToValueAtTime(45,t+d+.18);env(g,t+d,.004,(i?.5:.7)*v,.2);});},
     ghost(t=now()){const g=G();g.connect(fx);const o=osc('sine',520,t,1.6,g);const l=ac.createOscillator(),lg=G(40);l.frequency.value=5;l.connect(lg);lg.connect(o.frequency);l.start(t);l.stop(t+1.6);o.frequency.linearRampToValueAtTime(320,t+1.5);env(g,t,.3,.08,1.2);},
+    // Trommelwirbel während das Fadenkreuz springt (schwillt an)
+    drumroll(t=now(),dur=3){const g=G();g.connect(fx);const n=Math.floor(dur*18);for(let i=0;i<n;i++){const tt=t+i/18,v=.12+.5*(i/n),gg=G(),f=filt('bandpass',190+Math.random()*30,1.5,gg);gg.connect(g);
+        const o=osc('triangle',150,tt,.08,f);o.frequency.exponentialRampToValueAtTime(95,tt+.06);env(gg,tt,.002,v,.07);const ng=G(),nf=filt('highpass',3500,.7,ng);ng.connect(g);noise(tt,.05,nf);env(ng,tt,.001,v*.25,.04);}
+      g.gain.value=1;},
+    caw(t=now()){for(let i=0;i<2+Math.floor(Math.random()*2);i++){const tt=t+i*.32,g=G();g.connect(pan(Math.random()*1.4-.7,fx));const f=filt('bandpass',1400,3,g),o=osc('sawtooth',620,tt,.25,shaper(3,f));
+        o.frequency.setValueAtTime(700,tt);o.frequency.exponentialRampToValueAtTime(420,tt+.22);env(g,tt,.01,.55,.22);}},
+    moo(t=now()){const g=G();g.connect(pan(Math.random()-.5,fx));const f=filt('lowpass',900,3,g),o=osc('sawtooth',140,t,1.1,f);o.frequency.setValueAtTime(115,t);o.frequency.linearRampToValueAtTime(150,t+.3);o.frequency.linearRampToValueAtTime(105,t+1);
+      const f2=filt('bandpass',600,4,g);o.connect(f2);env(g,t,.08,.35,1);},
+    baa(t=now()){const g=G();g.connect(pan(Math.random()-.5,fx));const f=filt('bandpass',1100,3,g),o=osc('sawtooth',330,t,.6,f),l=ac.createOscillator(),lg=G(40);l.frequency.value=22;l.connect(lg);lg.connect(o.frequency);l.start(t);l.stop(t+.6);env(g,t,.02,.65,.55);},
+    cackle(t=now()){for(let i=0;i<7;i++){const tt=t+i*.11,g=G();g.connect(fx);const fs=[filt('bandpass',900,6,g),filt('bandpass',2400,8,g)],o=ac.createOscillator();o.type='sawtooth';
+        o.frequency.setValueAtTime(520+i*25,tt);o.frequency.exponentialRampToValueAtTime(380+i*20,tt+.09);fs.forEach(f=>o.connect(f));o.start(tt);o.stop(tt+.12);env(g,tt,.005,.75,.09);}},
+    chomp(t=now()){for(let i=0;i<2;i++){const tt=t+i*.18,g=G(),f=filt('lowpass',1200,2,g);g.connect(fx);noise(tt,.12,f,{brown:true});env(g,tt,.002,1,.1);}sfx.gore(t+.1,1.2);sfx.scream(t,1.3,.8);},
+    land(t=now()){const g=G();g.connect(fx);const o=osc('sine',90,t,.4,shaper(3,g));o.frequency.exponentialRampToValueAtTime(40,t+.3);env(g,t,.003,.7,.35);sfx.crumble(t);},
+    slowmo(t=now()){const g=G();g.connect(fx);const o=osc('sine',70,t,2.5,shaper(2,g));o.frequency.exponentialRampToValueAtTime(28,t+2.2);env(g,t,.01,.7,2.3);
+      const n=G(),f=filt('lowpass',500,1,n);n.connect(fx);noise(t,2.4,f,{brown:true,rate:.4});env(n,t,.05,.8,2.2);},
+    boost(t=now()){sfx.fire(t,.8);const g=G();g.connect(fx);const o=osc('sawtooth',110,t,.7,filt('lowpass',2400,2,g));o.frequency.exponentialRampToValueAtTime(440,t+.5);env(g,t,.02,.22,.6);brass(t+.2,62,.5,.18,fx);brass(t+.2,69,.5,.12,fx);},
+    choose(t=now()){[0,.08,.16].forEach((d,i)=>{const g=G();g.connect(fx);osc('triangle',[784,988,1175][i],t+d,.3,g);env(g,t+d,.002,.18,.25);});},
+    brick(t=now()){const g=G(),f=filt('bandpass',1600+Math.random()*1200,7,g);g.connect(pan(Math.random()-.5,fx));noise(t,.05,f);env(g,t,.001,.35,.05);},
+    crank(t=now()){for(let i=0;i<8;i++){const tt=t+i*.09,g=G(),f=filt('bandpass',2600,9,g);g.connect(fx);noise(tt,.03,f);env(g,tt,.001,.4,.03);}},
+    thud(t=now()){const g=G();g.connect(fx);const o=osc('sine',110,t,.25,g);o.frequency.exponentialRampToValueAtTime(55,t+.2);env(g,t,.002,.5,.2);},
     countdown(t=now(),last=false){wardrum(t,last?.7:.5,last?80:115,fx);if(last){sfx.cymbal(t);sfx.horn(t+.05,.8);}}};
 
   return {ac,start,stop,setMood,energy:x=>{E=x;},sfx,

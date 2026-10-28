@@ -36,6 +36,7 @@ h1,h2,h3{font-family:'Cinzel Decorative','Cinzel',serif;margin:0;color:var(--blo
 .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(64px + var(--safe-t)) 14px calc(14px + var(--safe-b));z-index:20;overflow:auto;touch-action:pan-y}
 .screen.dim{background:radial-gradient(ellipse,#0006,#000b)}
 .card{width:min(560px,100%);max-height:100%;overflow:auto;padding:26px 22px 22px;touch-action:pan-y}
+.card.parch::before{display:none}.card.parch{box-shadow:0 0 0 2px #8a6a3a,0 0 0 5px #3a2412,0 18px 50px #000c,inset 0 0 40px #b8925066,inset 0 0 0 8px #f1e2bf,inset 0 0 0 9.5px #8a6a3a88}
 .card h2{font-size:1.55rem;text-align:center;margin-bottom:.4em}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .col{display:flex;flex-direction:column;gap:12px}
@@ -99,9 +100,12 @@ h1,h2,h3{font-family:'Cinzel Decorative','Cinzel',serif;margin:0;color:var(--blo
 .lab{position:absolute;left:0;top:0;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;transition:opacity .3s}
 .lab .nm{display:flex;align-items:center;gap:4px;padding:2px 9px 2px 4px;border-radius:14px;border:1.5px solid #000a;font:700 13px 'Cinzel',serif;color:#fff;text-shadow:0 1px 2px #000;box-shadow:0 2px 6px #0008}
 .lab .ic{font-size:14px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:#fff3}
-.lab .tw{font-size:11px;letter-spacing:1px;color:#ffd979;text-shadow:0 1px 2px #000}
+.lab .tw{font-size:10px;letter-spacing:0;color:#ffd979;text-shadow:0 1px 2px #000}
+.lab .buffs{display:flex;gap:3px}
+.lab .bf{font:700 12px 'Cinzel',serif;padding:1px 5px;border-radius:10px;background:#0009;color:#fff;border:1.5px solid #fff8;animation:pop .35s cubic-bezier(.3,1.8,.5,1)}
+.lab .bf.sh{border-color:#8cf}.lab .bf.bo{border-color:#f93}.lab .bf.gh{border-color:#9f9}
+#chips .btn.big{min-height:56px;font-size:1.1rem;flex:1;min-width:40%}
 .lab .tw .d{opacity:.25;filter:grayscale(1)}
-.lab .bets{display:flex;gap:2px}
 .lab .tok{width:22px;height:22px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;font-size:12px;box-shadow:0 2px 4px #000a;animation:pop .35s cubic-bezier(.3,1.8,.5,1)}
 .lab.dead .nm{filter:grayscale(.7) brightness(.7)}
 .lab.me .nm{outline:2px solid var(--gold);outline-offset:1px}
@@ -205,12 +209,22 @@ h1,h2,h3{font-family:'Cinzel Decorative','Cinzel',serif;margin:0;color:var(--blo
   <div class="opt"><h3>Angreifer (kombinierbar)</h3><div class="seg" data-k="attacks">
     <label><input type="checkbox" value="katapult"><span>🪨 Katapult</span></label><label><input type="checkbox" value="drache"><span>🐉 Drache</span></label>
     <label><input type="checkbox" value="pulver"><span>🛢️ Pulverfass</span></label><label><input type="checkbox" value="fluch"><span>🌩️ Fluch</span></label></div></div>
-  <div class="opt"><h3>Wetten</h3><div class="seg" data-k="betMode">
-    <label><input type="radio" name="bm" value="round"><span>Jede Runde (Schild)</span></label><label><input type="radio" name="bm" value="start"><span>Nur am Anfang (Königswette)</span></label></div></div>
+  <div class="opt"><h3>Boost nach einem Treffer</h3><div class="seg" data-k="boostType">
+    <label><input type="radio" name="bt" value="doppel"><span>💥 Doppelschaden</span></label><label><input type="radio" name="bt" value="extra"><span>🎯 Extra-Einschlag</span></label><label><input type="radio" name="bt" value="ziel"><span>🗡️ Eigenes Ziel</span></label></div></div>
+  <div class="opt"><h3>Buffs sammeln</h3><div class="seg" data-k="stack">
+    <label><input type="radio" name="st" value="eins"><span>Höchstens einer</span></label><label><input type="radio" name="st" value="je"><span>Je einer</span></label><label><input type="radio" name="st" value="viele"><span>Unbegrenzt</span></label></div></div>
+  <div class="opt"><h3>Tempo</h3><div class="seg" data-k="tempo">
+    <label><input type="radio" name="tp" value="kurz"><span>Kurz</span></label><label><input type="radio" name="tp" value="mittel"><span>Mittel</span></label><label><input type="radio" name="tp" value="lang"><span>Lang</span></label></div></div>
+  <div class="opt"><h3>Geisterfluch (Gefallene verfluchen einmal)</h3><div class="seg" data-k="ghostCurse">
+    <label><input type="radio" name="gc" value="1"><span>An</span></label><label><input type="radio" name="gc" value="0"><span>Aus</span></label></div></div>
   <div class="opt"><h3>Partie</h3><div class="seg" data-k="match">
     <label><input type="radio" name="mt" value="1"><span>Einzelspiel</span></label><label><input type="radio" name="mt" value="3"><span>Best of 3</span></label><label><input type="radio" name="mt" value="5"><span>Best of 5</span></label></div></div>
   <div class="opt"><h3>Kamera</h3><div class="seg" data-k="camFx">
     <label><input type="radio" name="cf" value="1"><span>Wackeln & Zoom</span></label><label><input type="radio" name="cf" value="0"><span>Ruhig</span></label></div></div>
+  <div class="opt"><h3>Kamerafahrten zwischen den Runden</h3><div class="seg" data-k="cam">
+    <label><input type="radio" name="cm" value="kurz"><span>Kurz</span></label><label><input type="radio" name="cm" value="film"><span>Filmisch</span></label><label><input type="radio" name="cm" value="skip"><span>Filmisch, antippen = weiter</span></label></div></div>
+  <div class="opt"><h3>Killcam (Zeitlupe, wenn eine Burg fällt)</h3><div class="seg" data-k="killcam">
+    <label><input type="radio" name="kc" value="1"><span>An</span></label><label><input type="radio" name="kc" value="0"><span>Aus</span></label></div></div>
 </template>
 
 <!-- Online -->
@@ -254,11 +268,13 @@ h1,h2,h3{font-family:'Cinzel Decorative','Cinzel',serif;margin:0;color:var(--blo
 <div id="rules" class="screen dim hide">
   <div class="card parch rules">
     <h2>📜 Die Regeln</h2>
-    <p class="big">🏰🏰🏰 → 👑</p>
+    <p class="big">🏰 ♜♜♜♜♜ → 👑</p>
     <p>Jeder Spieler <b>baut eine Burg</b>: reihum tippt jeder dorthin, wo sie stehen soll. Danach braucht’s keine Finger mehr am Handy.</p>
-    <p>Jede Burg hat <b>drei Türme – drei Leben</b>. Jeder Treffer kostet einen Turm. Ist der letzte Turm hin, fällt die Burg. <b>Wer als Letzter steht, wird König.</b></p>
-    <p>Jede Runde: <b>Wetten → Countdown → Angriff → Auswertung</b>. Später schlagen pro Runde mehrere Geschosse ein.</p>
-    <p><b>Wetten:</b> Tippt, welche Burg diese Runde getroffen wird. Wer richtig liegt, bekommt einen <b>Schutzschild</b> für die nächste Runde. Gefallene spielen als <b>Geister</b> weiter und sammeln Geisterpunkte.</p>
+    <p>Jede Burg hat <b>fünf Türme – fünf Leben</b>. Jeder Treffer kostet einen Turm. Ist der letzte Turm hin, fällt die Burg. <b>Wer als Letzter steht, wird König.</b></p>
+    <p>Jede Runde: <b>Zünden → Countdown → Angriff → Wahl</b>. Das Fadenkreuz springt mit Trommelwirbel, bis es sein Opfer findet. Später schlagen pro Runde mehr Geschosse ein (Tempo einstellbar).</p>
+    <p><b>Getroffen?</b> Wer in einer Runde Türme verliert und noch steht, wählt: <b>🔥 Angriffs-Boost</b> oder <b>🛡 Schild</b>.</p>
+    <p><b>🛡 Schild</b> fängt genau einen Treffer ab und bleibt, bis etwas einschlägt. <b>🔥 Boost</b> hebt man auf und zündet ihn selbst vor dem Countdown – je nach Einstellung: <b>Doppelschaden</b> (diese Runde kosten Treffer auf fremde Burgen zwei Türme), <b>Extra-Einschlag</b> (ein Geschoss mehr auf eine zufällige andere Burg) oder <b>Eigenes Ziel</b> (Ihr wählt, wen es trifft).</p>
+    <p><b>👻 Geisterfluch:</b> Gefallene dürfen einmal pro Partie eine Burg verfluchen (abschaltbar).</p>
     <div class="atk"><span>🪨</span><span><b>Katapult</b> – trifft eine Burg.</span>
       <span>🐉</span><span><b>Drache</b> – fliegt eine gerade Linie und verbrennt jede Burg darauf. Wo Ihr baut, zählt!</span>
       <span>🛢️</span><span><b>Pulverfass</b> – trifft eine Burg, mit 25 % Chance springt es auf eine zweite über.</span>

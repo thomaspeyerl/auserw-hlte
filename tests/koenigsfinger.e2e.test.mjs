@@ -25,11 +25,11 @@ async function playOffline(browser,base,query,viewport){
   page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>{window.__st=[];window.__rounds=[];window.__res=null;window.__h=[];
     addEventListener('kf:strike',e=>__st.push({target:e.detail.st.target,reticle:e.detail.reticle,type:e.detail.st.type}));
-    addEventListener('kf:round',e=>__rounds.push(e.detail));addEventListener('kf:result',e=>{__res=e.detail;});addEventListener('kf:herald',e=>__h.push(e.detail));});
+    window.__ch=0;addEventListener('kf:choices',e=>{__ch+=e.detail.length;});addEventListener('kf:round',e=>__rounds.push(e.detail));addEventListener('kf:result',e=>{__res=e.detail;});addEventListener('kf:herald',e=>__h.push(e.detail));});
   await page.goto(`${base}/koenigsfinger/?auto=1&q=.35&${query}`);
   await page.waitForFunction(()=>__res&&!document.getElementById('result').classList.contains('hide'),null,{timeout:420000,polling:1000});
   const out=await page.evaluate(()=>({st:__st,rounds:__rounds.map(r=>({strikes:r.strikes.map(s=>s.target),winner:r.winner})),res:{winner:__res.winner,ranking:__res.ranking,rounds:__res.rounds,seed:__res.seed},
-    title:document.getElementById('resTitle').textContent,h:__h,labels:document.querySelectorAll('#labels .lab').length}));
+    title:document.getElementById('resTitle').textContent,h:__h,choices:__ch,labels:document.querySelectorAll('#labels .lab').length}));
   await page.close();return {...out,errors};}
 
 function check(o,n){
@@ -45,23 +45,24 @@ function check(o,n){
   assert.ok(o.h.some(t=>/König|Kron|Majestät/.test(t)),'der Herold krönt');
 }
 
-test('Am Tisch: vier Spieler im Hochformat, alle Angreifer, Wette jede Runde',{skip,timeout:480000},async()=>{
+test('Am Tisch: vier Spieler im Hochformat, alle Angreifer, eigenes Ziel, Buffs unbegrenzt',{skip,timeout:480000},async()=>{
   const {srv,base}=await serve();const browser=await chromium.launch({args:ARGS});
-  try{const o=await playOffline(browser,base,'speed=8&names=Anna,Bert,Cleo,Dora',{width:390,height:844});check(o,4);
+  try{const o=await playOffline(browser,base,'speed=8&names=Anna,Bert,Cleo,Dora&boostType=ziel&stack=viele&cam=kurz',{width:390,height:844});check(o,4);
+    assert.ok(o.choices>0,'Getroffene haben gewählt');
     assert.ok(o.h.some(t=>/tippt|Burg/.test(t)),'Bauaufforderung');}
   finally{await browser.close();srv.close();}
 });
 
-test('Am Tisch: zwei Spieler quer, Königswette, nur Fluch und Drache',{skip,timeout:480000},async()=>{
+test('Am Tisch: drei Spieler quer, Doppelschaden, nur Fluch und Drache, ohne Geisterfluch',{skip,timeout:480000},async()=>{
   const {srv,base}=await serve();const browser=await chromium.launch({args:ARGS});
-  try{const o=await playOffline(browser,base,'speed=8&names=Xaver,Yvonne&bet=start&attacks=fluch,drache&preset=nacht',{width:860,height:420});check(o,2);
+  try{const o=await playOffline(browser,base,'speed=8&names=Xaver,Yvonne,Zenzi&boostType=doppel&stack=eins&tempo=kurz&noghost&nokill&attacks=fluch,drache&preset=nacht',{width:860,height:420});check(o,3);
     for(const s of o.st)assert.ok(['fluch','drache'].includes(s.type));}
   finally{await browser.close();srv.close();}
 });
 
 const ONLINE=process.env.KF_ONLINE;
 test('Online: Gastgeber und zwei Gäste spielen eine Partie, alle sehen dasselbe Ergebnis',{skip:skip||(!ONLINE&&'KF_ONLINE nicht gesetzt'),timeout:600000},async()=>{
-  const browser=await chromium.launch({args:ARGS});const q='bot=1&speed=4&q=.35';const pages=[];
+  const browser=await chromium.launch({args:ARGS});const q='bot=1&speed=6&q=.3&cam=kurz';const pages=[];
   const mk=async(name,url)=>{const ctx=await browser.newContext({viewport:{width:360,height:640},hasTouch:true});
     await ctx.addInitScript(n=>{localStorage.setItem('kf.myName',JSON.stringify(n));localStorage.setItem('kf.seenRules','true');},name);
     const p=await ctx.newPage();p.errors=[];p.on('pageerror',e=>p.errors.push(e.message));await p.goto(url);pages.push(p);return p;};

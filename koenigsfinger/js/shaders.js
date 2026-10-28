@@ -29,6 +29,7 @@ uniform vec3 uTint;uniform float uAlpha,uTime,uGlow;
 uniform vec3 uSunDir,uSunCol,uSkyAmb,uGndAmb,uFogCol,uCam;uniform float uFog;
 uniform highp sampler2D uShadow;uniform mat4 uSVP;
 uniform int uNL;uniform vec4 uLP[8];uniform vec3 uLC[8];
+uniform float uClip,uBlood,uBloodY,uBloodSeed;
 out vec4 o;
 float shadow(vec3 p,vec3 n){vec4 s=uSVP*vec4(p+n*.05,1.);vec3 c=s.xyz/s.w*.5+.5;
   if(c.x<0.||c.x>1.||c.y<0.||c.y>1.||c.z>1.)return 1.;
@@ -36,6 +37,7 @@ float shadow(vec3 p,vec3 n){vec4 s=uSVP*vec4(p+n*.05,1.);vec3 c=s.xyz/s.w*.5+.5;
   for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++){float d=texture(uShadow,c.xy+vec2(i,j)*ts*1.3).r;sum+=c.z-.0012>d?0.:1.;}
   return sum/9.;}
 void main(){
+  if(uClip>0.&&vW.y+100.>uClip)discard;   // Burg wächst beim Bauen Schicht für Schicht
 #ifdef SHADOW
   o=vec4(1.);return;
 #endif
@@ -52,6 +54,12 @@ void main(){
   if(vM==4){vec3 r=reflect(-v,n);float sp=pow(max(dot(r,uSunDir),0.),20.)*(.3+.7*sh);
     col=base*(amb*1.3+uSunCol*dl)+uSunCol*sp*2.+base*pow(1.-max(dot(n,v),0.),3.)*.8+base*.25;}
   for(int i=0;i<8;i++){if(i>=uNL)break;vec3 L=uLP[i].xyz-vW;float d=length(L);float at=uLP[i].w/(1.+d*d*1.2);col+=base*uLC[i]*(max(dot(n,L/d),0.)*.85+.15)*at;}
+  // Blut läuft die Mauern hinunter: senkrechte Rinnsale unterschiedlicher Länge, oben breiter
+  if(uBlood>0.&&vM<=1&&abs(n.y)<.55){float cl=floor((vW.x*1.3+vW.z*1.7)*11.);float r=fract(sin(cl*91.7+uBloodSeed)*43758.5);
+    float top=uBloodY-100.-r*.35,len=(.2+r*.9)*uBlood,y=vW.y;
+    float m=step(.42-uBlood*.25,r)*step(y,top)*smoothstep(top-len-.04,top-len+.02,y);
+    float sp=smoothstep(.0,.25,uBlood)*step(.8,fract(sin(dot(floor(vW.xz*14.),vec2(12.9,78.2))+uBloodSeed)*43758.5))*step(y,top+.3);
+    col=mix(col,vec3(.25,.0,.0)*(amb*.7+uSunCol*dl*.5)+vec3(.04,0.,0.),clamp(max(m*.92,sp*.7),0.,1.));}
   col+=base*uGlow;
   float fog=1.-exp(-length(vW-uCam)*uFog);col=mix(col,uFogCol,fog);
   o=vec4(col*.5,uAlpha);}`;

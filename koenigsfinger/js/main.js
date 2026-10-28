@@ -19,12 +19,13 @@ const NEUTRAL='#a89a86';
 const RET_COL={katapult:[1,.55,.15],drache:[1,.25,.1],pulver:[1,.85,.2],fluch:[.75,.3,1]};
 const BUZZ={katapult:[90,40,180],drache:[30,30,30,30,30,30,220],pulver:[320,60,120],fluch:[60,90,60,90,420],fall:[200,80,450],shield:[20,25,20,25,20]};
 const ONLINE_REGION={x:7,z0:-6,z1:7.5};
-const DEFAULTS={attacks:[...R.ATTACKS],betMode:'round',match:1,camFx:true};
+const DEFAULTS={attacks:[...R.ATTACKS],boostType:'extra',stack:'je',tempo:'mittel',ghostCurse:true,cam:'skip',killcam:true,match:1,camFx:true};
+const FLY={kurz:1.3,film:4,skip:4};
 
 /* ---------- 3D-Welt ---------- */
 let world;
 try{world=new World($('gl'));}catch(e){console.warn(e);$('nogl').classList.remove('hide');$('menu').classList.add('hide');$('fade').style.opacity=0;throw e;}
-let cfg={...DEFAULTS,...store.get('settings',{})};
+let cfg={...DEFAULTS,...store.get('settings',{})};delete cfg.betMode;
 world.effects=cfg.camFx;if(FIXQ){world.q=FIXQ;world.resize();}
 
 /* ---------- Ton ---------- */
@@ -39,10 +40,15 @@ const buzz=p=>{try{navigator.vibrate&&navigator.vibrate(p);}catch{}};
 function setSound(on){soundOn=on;store.set('sound',on);$('snd1').classList.toggle('hide',!on);$('snd0').classList.toggle('hide',on);if(audio){audio.setSfx(on);audio.setMusic(on);}}
 setSound(soundOn);
 world.onThunder=()=>sfx.thunder(0,.6);world.onFirework=()=>sfx.firework();
+// Geräusche aus der Welt (Schreie und Tiere mit Mindestabstand, damit es nicht zum Brei wird)
+const limited=(fn,gap)=>{let last=-9;return()=>{const t=performance.now()/1000;if(t-last>gap/SPEED){last=t;fn();}};};
+world.onScream=limited(()=>sfx.scream(0,.9+Math.random()*.5,.7),.25);world.onMoo=limited(()=>sfx.moo(),.8);world.onBaa=limited(()=>sfx.baa(),.6);
+world.onCaw=limited(()=>sfx.caw(),1.5);world.onCackle=()=>sfx.cackle();world.onCrank=()=>sfx.crank();world.onThud=()=>sfx.thud();world.onLand=()=>sfx.land();
+world.onBrick=limited(()=>sfx.brick(),.05);world.onSplat=limited(()=>sfx.gore(0,.6),.2);
 
 /* ---------- Abbrechbare Abläufe ---------- */
 let ctl=new AbortController();
-function newRun(){ctl.abort();ctl=new AbortController();tapHandler=null;chooser=null;promptTimer=null;return ctl.signal;}
+function newRun(){ctl.abort();ctl=new AbortController();tapHandler=null;chooser=null;promptTimer=null;world.ts=1;world.endFly();return ctl.signal;}
 function guard(p){const s=ctl.signal;return new Promise((res,rej)=>{if(s.aborted)return rej(ABORT);s.addEventListener('abort',()=>rej(ABORT),{once:true});p.then(res,rej);});}
 const wait=t=>guard(world.wait(t));
 const quiet=p=>p.catch(e=>{if(e!==ABORT)console.error(e);});
@@ -62,18 +68,17 @@ function prompt(html,{secs=0}={}){$('promptText').innerHTML=html;$('prompt').cla
 function hidePrompt(){$('prompt').classList.add('hide');promptTimer=null;}
 function showCount(t,go=false){$('count').innerHTML=`<span class="${go?'go':''}">${esc(t)}</span>`;}
 
-/* ---------- Spielansicht: Spieler, Namensschilder, Wett-Marken ---------- */
-let view={players:[],bets:{},kingBets:{},me:null,finale:false};
+/* ---------- Spielansicht: Spieler, Namensschilder mit Türmen, Schilden und Boosts ---------- */
+let view={players:[],me:null,finale:false};
 const labels=new Map();
 function resetLabels(){labels.clear();$('labels').innerHTML='';}
+const newPlayer=(name,id)=>({id,name,color:NEUTRAL,crestIcon:'',crest:'',towers:R.TOWERS,alive:true,shields:0,boosts:0,curseUsed:false,revenge:0,x:0,z:0,placed:false});
 function label(p){let el=labels.get(p.id);if(!el){el=document.createElement('div');el.className='lab';$('labels').appendChild(el);labels.set(p.id,el);el._k='';}
-  const key=[p.name,p.color,p.crestIcon,p.towers,p.alive,p.ghostPts,view.me===p.id,JSON.stringify(betsOn(p.id))].join('|');if(key===el._k)return el;el._k=key;
+  const key=[p.name,p.color,p.crestIcon,p.towers,p.alive,p.shields,p.boosts,p.curseUsed,view.me===p.id].join('|');if(key===el._k)return el;el._k=key;
   el.classList.toggle('dead',!p.alive);el.classList.toggle('me',view.me===p.id);
-  const tw=[0,1,2].map(i=>`<span class="${i<p.towers?'':'d'}">♜</span>`).join('');
-  el.innerHTML=`<div class="bets">${betsOn(p.id).map(b=>`<span class="tok" style="background:${b.color}">${b.icon}</span>`).join('')}</div>
-    <div class="nm" style="background:${p.color}"><span class="ic">${p.alive?p.crestIcon||'🏰':'👻'}</span>${esc(p.name)}${p.ghostPts?` · ${p.ghostPts}👻`:''}</div>${p.alive?`<div class="tw">${tw}</div>`:''}`;return el;}
-function betsOn(id){const out=[];for(const [from,to] of Object.entries(view.bets))if(to===id){const p=view.players[from];if(p)out.push({color:p.color,icon:p.alive?p.crestIcon||'•':'👻'});}
-  for(const [from,to] of Object.entries(view.kingBets))if(to===id){const p=view.players[from];if(p)out.push({color:p.color,icon:'👑'});}return out;}
+  const tw=Array.from({length:R.TOWERS},(_,i)=>`<span class="${i<p.towers?'':'d'}">♜</span>`).join('');
+  const buffs=(p.shields?`<span class="bf sh">🛡${p.shields>1?p.shields:''}</span>`:'')+(p.boosts?`<span class="bf bo">🔥${p.boosts>1?p.boosts:''}</span>`:'')+(!p.alive&&cfg.ghostCurse&&!p.curseUsed?'<span class="bf gh">☠</span>':'');
+  el.innerHTML=`<div class="buffs">${buffs}</div><div class="nm" style="background:${p.color}"><span class="ic">${p.alive?p.crestIcon||'🏰':'👻'}</span>${esc(p.name)}</div>${p.alive?`<div class="tw">${tw}</div>`:''}`;return el;}
 function updateLabels(){for(const p of view.players){if(!p.placed)continue;const c=world.castle(p.id);if(!c)continue;const el=label(p);
     const s=world.project([c.x,c.y+(c.fallen?2.7:2.35),c.z]);el.style.opacity=s.vis?1:0;el.style.transform=`translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px) translate(-50%,-100%)`;}}
 const P=id=>view.players[id];
@@ -89,6 +94,11 @@ function choose(ids,secs){return guard(new Promise(res=>{let done=false;
   tapHandler=(x,y)=>{const id=world.pickCastle(x,y,ids);if(id!=null)fin(id);};chips(ids,fin);
   if(secs)world.after(secs,()=>fin(null));
   if(BOT)world.after(Math.min(.5,secs*.2)+Math.random()*.4,()=>fin(ids[Math.floor(Math.random()*ids.length)]));}));}
+/* Frage mit zwei großen Knöpfen (z. B. Boost oder Schild); nach secs Sekunden → null */
+function ask2(a,b,secs){return guard(new Promise(res=>{let done=false;const fin=v=>{if(done)return;done=true;if(chooser===c)chooser=null;promptTimer=null;$('chips').innerHTML='';res(v);};const c={fin};chooser=c;
+  $('chips').innerHTML='';for(const [k,txt,cls] of [['a',a,'gold'],['b',b,'']]){const bt=document.createElement('button');bt.className='btn big '+cls;bt.textContent=txt;bt.onclick=()=>{sfx.click();fin(k);};$('chips').appendChild(bt);}
+  if(secs)world.after(secs,()=>fin(null));
+  if(BOT)world.after(.3+Math.random()*.5,()=>fin(Math.random()<.5?'a':'b'));}));}
 /* Bauplatz wählen */
 function choosePlace(region){return guard(new Promise(res=>{
   const tryAt=(x,y,silent)=>{const g=world.screenToGround(x,y);if(!g)return false;const err=world.canPlace(g.x,g.z,x,y,region);
@@ -101,7 +111,7 @@ async function present(s){
   switch(s.k){
   case 'setup':{
     world.clearCastles();world.setTitle(false);world.setPreset(s.preset);world.effects=cfg.camFx;resetLabels();hidePrompt();hideScreens();
-    view={players:s.names.map((name,id)=>({id,name,color:NEUTRAL,crestIcon:'',crest:'',towers:R.TOWERS,alive:true,shield:false,ghostPts:0,x:0,z:0,placed:false})),bets:{},kingBets:{},me:mode==='offline'?null:myIndex(s.cids),finale:false};
+    view={players:s.names.map(newPlayer),me:mode==='offline'?null:myIndex(s.cids),finale:false};
     $('seed').textContent='';$('pauseBtn').classList.toggle('hide',mode!=='offline');mood('taverne');
     herald(s.gameNo>1?`Partie ${s.gameNo} – ${PRESETS[s.preset].name}!`:say('welcome'),{fanfare:true,dur:3.2});await wait(1.8);break;}
   case 'placeAsk':prompt(`<b>${esc(s.name)}</b>, tippt dorthin, wo Eure Burg stehen soll!`);herald(say('place',{name:s.name}),{dur:2.4});break;
@@ -114,36 +124,34 @@ async function present(s){
     if(view.me===s.id)prompt('Eure Burg steht! Warte auf die anderen…');
     await wait(s.fast?.25:1.2);break;}
   case 'paint':{hidePrompt();world.setReticle(null);for(const q of s.players){const p=P(q.id);Object.assign(p,q);world.paint(q.id,q.color);sfx.coin();await wait(.22);}
-    world.fitCamera(view.players.map(p=>({x:p.x,z:p.z})));herald(say('lots'),{dur:2.6});$('seed').textContent='Seed '+s.seed;await wait(1.8);break;}
-  case 'kingAsk':prompt(`<b>${esc(s.name)}</b>: Wer wird König?`,{secs:s.secs});herald(say('kingBet',{name:s.name}),{dur:2});break;
-  case 'kingBet':view.kingBets[s.from]=s.to;sfx.bet();break;
-  case 'kingOpen':{const me=view.me;prompt(me!=null?'Wer wird König? Tippt <b>g’heim</b> eine Burg an!':'Die anderen tippen…',{secs:s.secs});herald('Wer wird König? Jeder tippt g’heim!',{dur:2.4});
-    if(me!=null)quiet(choose(s.ids,s.secs).then(to=>{if(to!=null){sendChoice({t:'king',to});prompt('Euer Tipp is abgegeben. Psst!');sfx.bet();}}));break;}
-  case 'kingbets':hidePrompt();if(chooser)chooser.fin(null);view.kingBets=s.bets;sfx.coin();herald('Die Königswetten stehen!',{dur:2});await wait(1.4);break;
-  case 'round':{world.setReticle(null);mood(view.finale?'finale':'taverne');herald(say(s.strikes===1?'round1':'round',{n:s.n,k:s.strikes}),{fanfare:true,dur:2.6});sfx.drum();emitEv('roundStart',s);await wait(2.2);break;}
-  case 'betAsk':{const p=P(s.id);prompt(`<b>${esc(p.name)}</b>${p.alive?'':' 👻'}: Wo schlagt’s ein?`,{secs:s.secs});herald(say(p.alive?'bet':'ghostBet',{name:p.name}),{dur:2});break;}
-  case 'bet':if(s.to==null)herald(say('noBet',{name:P(s.from).name}),{dur:1.4});else{view.bets[s.from]=s.to;sfx.bet();}break;
-  case 'betOpen':{const me=view.me,ok=me!=null&&s.who.includes(me);
-    prompt(ok?(P(me).alive?'Wo schlagt’s ein? Tippt <b>g’heim</b> eine Burg an!':'👻 Geistertipp: wo schlagt’s ein?'):'Die anderen wetten…',{secs:s.secs});herald(say('secretBet',{s:s.secs}),{dur:2.4});
-    if(ok)quiet(choose(s.ids,s.secs).then(to=>{if(to!=null){sendChoice({t:'bet',to});prompt('Euer Tipp is abgegeben. Psst!');sfx.bet();}}));break;}
-  case 'bets':hidePrompt();if(chooser)chooser.fin(null);view.bets=s.bets;if(Object.keys(s.bets).length)sfx.coin();await wait(1);break;
+    world.fitCamera(view.players.map(p=>({x:p.x,z:p.z})));world.life.populate();herald(say('lots'),{dur:2.6});$('seed').textContent='Seed '+s.seed;await wait(1.8);break;}
+  case 'round':{world.setReticle(null);hidePrompt();if(s.n>1||s.first)await camMove();mood(view.finale?'finale':'taverne');
+    herald(say(s.strikes===1?'round1':'round',{n:s.n,k:s.strikes}),{fanfare:true,dur:2.6});sfx.drum();emitEv('roundStart',s);await wait(2.2);break;}
+  case 'actAsk':{const p=P(s.id);prompt(p.alive?`<b>${esc(p.name)}</b>: Boost zünden? 🔥`:`👻 <b>${esc(p.name)}</b>: Burg verfluchen?`,{secs:s.secs});
+    herald(say(p.alive?'fireAsk':'curseAsk',{name:p.name}),{dur:2.2});break;}
+  case 'actOpen':{const me=view.me,ok=me!=null&&s.who.includes(me);prompt(ok?(P(me).alive?'Euren <b>Boost</b> jetzt zünden?':'👻 Eine Burg <b>verfluchen</b>?'):'Andere überlegen, ob sie zünden…',{secs:s.secs});
+    herald(say('actSecret'),{dur:2.2});if(ok)quiet(askAct(me,s.ids,s.secs).then(r=>{if(r!==undefined){sendChoice({t:'act',to:r});prompt('Gezündet! Psst…');}else{sendChoice({t:'act',skip:true});prompt('Aufgehoben.');}}));break;}
+  case 'actsClose':hidePrompt();if(chooser)chooser.fin(null);break;
+  case 'fire':{const p=P(s.from),tg=s.target!=null?P(s.target):null;
+    if(s.kind==='geist'){p.curseUsed=true;herald(say('ghostCurse',{name:p.name,target:tg?tg.name:'wen'}),{dur:2.6});sfx.cackle();const c=world.castle(s.from);if(c)world.burst([c.x,c.y+2,c.z],{n:80,col:[.6,1,.5],speed:4,type:0,life:1.2,add:true,size:.3,g:1});}
+    else{p.boosts=Math.max(0,p.boosts-1);const key=s.boostType==='doppel'?'boostDoppel':s.boostType==='ziel'?'boostZiel':'boostExtra';herald(say(key,{name:p.name,target:tg?tg.name:''}),{fanfare:false,dur:2.6});sfx.boost();buzz([40,30,80]);
+      const c=world.castle(s.from);if(c){world.explosion([c.x,c.y+2.2,c.z],[1,.45,.1],.6);world.light([c.x,c.y+2,c.z],[1,.5,.1],20,1);}}
+    await wait(1.6);break;}
+  case 'chooseAsk':{const p=P(s.id);prompt(`<b>${esc(p.name)}</b> wurde getroffen – was nun?`,{secs:s.secs});herald(say('choose',{name:p.name}),{dur:2.2});break;}
+  case 'chooseOpen':{const me=view.me,ok=me!=null&&s.who.includes(me);prompt(ok?'Ihr wurdet getroffen! <b>Boost</b> oder <b>Schild</b>?':'Getroffene wählen Boost oder Schild…',{secs:s.secs});
+    herald(say('chooseSecret'),{dur:2.2});if(ok)quiet(ask2('🔥 Angriffs-Boost','🛡 Schild',s.secs).then(c=>{if(c){sendChoice({t:'choice',c:c==='a'?'boost':'schild'});prompt('Gewählt!');}}));break;}
+  case 'chosen':{hidePrompt();if(chooser)chooser.fin(null);
+    for(const c of s.list){const p=P(c.id);p.shields=c.shields;p.boosts=c.boosts;world.setShield(c.id,c.shields);
+      herald(say(c.choice==='boost'?'tookBoost':'tookShield',{name:p.name}),{dur:1.8});if(c.choice==='boost')sfx.boost();else sfx.shieldUp();
+      const cs=world.castle(c.id);if(cs&&c.choice==='boost')world.burst([cs.x,cs.y+2,cs.z],{n:60,col:[1,.5,.1],speed:4,type:2,life:.8,add:true,size:.07,g:-3});
+      await wait(1.1);}break;}
   case 'countdown':{hidePrompt();mood('schlacht',view.finale?.9:.4);for(const c of ['3','2','1']){showCount(c);sfx.countdown();buzz(40);await wait(.8);}
     showCount(say('countdown'),true);sfx.countdown(0,true);buzz([60,40,120]);await wait(.8);$('count').innerHTML='';break;}
-  case 'strike':await presentStrike(s.st);break;
-  case 'eval':{world.setReticle(null);const r=s.res;
-    for(const p of view.players){const on=r.shieldsNext.includes(p.id);if(p.shield!==on){p.shield=on;world.setShield(p.id,on);}}
-    if(r.shieldsNext.length)sfx.shieldUp();s.ghostPts.forEach((g,i)=>{if(P(i))P(i).ghostPts=g;});
-    const alive=r.correct.filter(id=>r.shieldsNext.includes(id)),ghosts=r.correct.filter(id=>!P(id).alive);
-    if(alive.length)herald(say(alive.length>1?'correctN':'correct',{names:joinNames(alive.map(id=>P(id).name))}),{dur:2.6});
-    else if(ghosts.length)herald(say('ghostPts',{names:joinNames(ghosts.map(id=>P(id).name))}),{dur:2.6});
-    else if(Object.keys(view.bets).length)herald(say('nobody'),{dur:2});
-    if(ghosts.length&&alive.length)setTimeout(()=>herald(say('ghostPts',{names:joinNames(ghosts.map(id=>P(id).name))}),{dur:2.4}),2600/SPEED);
-    await wait(alive.length&&ghosts.length?2.6:1.6);view.bets={};await wait(.6);break;}
-  case 'stechen':{herald(say('stechen'),{fanfare:true,dur:3.4});sfx.drum();await wait(1);for(const id of s.ids){world.revive(id);const p=P(id);p.towers=1;p.alive=true;sfx.shieldUp();await wait(.3);}await wait(1.6);break;}
+  case 'strike':await presentStrike(s.st,s.first);break;
+  case 'stechen':{herald(say('stechen'),{fanfare:true,dur:3.4});sfx.drum();await wait(1);for(const id of s.ids){world.revive(id);const p=P(id);p.towers=1;p.alive=true;p.shields=0;p.boosts=0;sfx.shieldUp();await wait(.3);}await wait(1.6);break;}
   case 'finale':view.finale=true;mood('finale');herald(say('finale'),{dur:3});sfx.heartbeat();await wait(.8);sfx.heartbeat();await wait(1.6);break;
   case 'king':{hidePrompt();world.setReticle(null);const p=P(s.id);mood('koenig');world.coronation(s.id);sfx.fanfare();sfx.bells(at(1));sfx.crowd(at(1.6),3.5);buzz([100,60,100,60,400]);
     herald(say('king',{name:p.name}),{dur:4.5});await wait(4.6);
-    if(s.kingmakers.length){herald(say('kingmaker',{names:joinNames(s.kingmakers.map(id=>P(id).name))}),{dur:2.6});await wait(2.4);}
     if(s.matchWinner!=null){herald(say('matchKing',{name:P(s.matchWinner).name}),{fanfare:true,dur:3});await wait(2.6);}
     break;}
   case 'result':showResult(s);break;
@@ -153,31 +161,40 @@ async function present(s){
   }
 }
 
-/* Ein Einschlag: Fadenkreuz springt (erst wild, dann im Kreis langsamer), dann fliegt der Angreifer sichtbar ein */
-async function presentStrike(st){
-  const col=RET_COL[st.type];herald(say(st.type),{dur:2.4});mood('schlacht',view.finale?1:.7);
+/* Kamerafahrt zwischen den Runden (Länge einstellbar, „überspringbar“ per Tipp) */
+async function camMove(){const d=FLY[cfg.cam]||0;if(!d||!world.effects&&cfg.cam!=='kurz')return;const prev=tapHandler;
+  if(cfg.cam==='skip'){tapHandler=()=>world.skipFly();$('netState').textContent='Tippen zum Überspringen';}
+  try{await guard(world.flyby(d));}finally{if(cfg.cam==='skip'){tapHandler=prev;$('netState').textContent='';}}}
+/* Ein Einschlag: Fadenkreuz springt (erst wild, dann im Kreis langsamer) mit Trommelwirbel, dann kommt der Angreifer sichtbar */
+async function presentStrike(st,first){
+  const col=RET_COL[st.type],from=st.from!=null?P(st.from):null;mood('schlacht',view.finale?1:.7);
+  if(st.src==='zufall')herald(first?say('tension'):say(st.type),{dur:2.4});
   if(st.type==='drache')sfx.roar();if(st.type==='fluch')sfx.ghost();
-  const n=st.path.length,tail=n-st.chaos;
-  for(let i=0;i<n;i++){world.setReticle(st.path[i],col);const last=i===n-1;sfx.tick(0,last);if(i%2===0)buzz(8);
-    const k=i<st.chaos?0:(i-st.chaos+1)/Math.max(1,tail);await wait(last?.55:i<st.chaos?.1+Math.random()*.04:.13+.36*k*k);}
+  const n=st.path.length,tail=n-st.chaos,times=[];
+  for(let i=0;i<n;i++){const k=i<st.chaos?0:(i-st.chaos+1)/Math.max(1,tail);times.push(i===n-1?.6:i<st.chaos?.12+Math.random()*.05:.16+.45*k*k);}
+  if(first||n>6)sfx.drumroll(0,times.reduce((a,b)=>a+b,0)/SPEED);
+  for(let i=0;i<n;i++){world.setReticle(st.path[i],col);const last=i===n-1;sfx.tick(0,last);if(i%2===0)buzz(8);await wait(times[i]);}
+  if(st.src==='zufall'&&first)herald(say(st.type),{dur:2.2});
   emitEv('strike',{st,reticle:st.path[n-1]});buzz(BUZZ[st.type]);
   const hitOf=id=>st.hits.find(h=>h.id===id);const pend=[];
-  if(st.type==='katapult'){sfx.creak();sfx.whoosh(at(.45),1.35/SPEED);await guard(world.catapult(st.target));world.setReticle(null);sfx.impact();await applyHit(st,hitOf(st.target));}
-  else if(st.type==='pulver'){sfx.whoosh(0,.9/SPEED);sfx.stone(at(.9),.6);sfx.fuse(at(.9),1.1/SPEED);await guard(world.keg(st.target));world.setReticle(null);sfx.explosion();
+  if(st.type==='katapult'){sfx.creak(at(.9));sfx.whoosh(at(1.6),1.35/SPEED);await guard(world.catapult(st.target));world.setReticle(null);sfx.impact();await applyHit(st,hitOf(st.target));}
+  else if(st.type==='pulver'){sfx.fuse(0,1.7/SPEED);sfx.fuse(at(1.7),1/SPEED);await guard(world.keg(st.target));world.setReticle(null);sfx.explosion();
     await applyHit(st,hitOf(st.target));
     if(st.chain!=null){herald(say('chain'),{dur:2});sfx.whoosh(0,1/SPEED);await guard(world.chain(st.target,st.chain));sfx.explosion(0,.8);await applyHit(st,hitOf(st.chain));}}
   else if(st.type==='drache'){sfx.wings(0,4.2/SPEED);world.setReticle(null);
-    await guard(world.dragon(st.target,st.dir,st.targets,id=>{sfx.fire(0,.9);sfx.roar(at(.1),.8);pend.push(quiet(applyHit(st,hitOf(id))));}));await guard(Promise.all(pend));}
+    await guard(world.dragon(st.target,st.dir,st.targets,id=>{sfx.fire(0,.9);sfx.roar(at(.1),.8);pend.push(quiet(applyHit(st,hitOf(id))));},()=>sfx.chomp()));await guard(Promise.all(pend));}
   else if(st.type==='fluch'){sfx.curse();await guard(world.curse(st.target));world.setReticle(null);await applyHit(st,hitOf(st.target));}
-  await wait(.9);}
+  void from;await wait(.9);}
 async function applyHit(st,h){if(!h)return;const p=P(h.id);
-  if(st.type==='fluch'&&p.shield){p.shield=false;world.setShield(h.id,false);herald(say('shieldBroken',{name:p.name}),{dur:2});sfx.shield();await wait(.4);}
-  if(h.blocked){world.hitTower(h.id,true);sfx.shield();buzz(BUZZ.shield);herald(say('blocked',{name:p.name}),{dur:2.2});return;}
-  world.hitTower(h.id,false,st.type);p.towers=h.towers;sfx.scream(at(.08),1+Math.random()*.3);sfx.gore(at(.12));
+  if(h.broke){p.shields=0;world.setShield(h.id,0);herald(say('shieldBroken',{name:p.name}),{dur:2});sfx.shield();await wait(.4);}
+  if(h.blocked){p.shields=h.shields;world.hitTower(h.id,true);world.setShield(h.id,h.shields);sfx.shield();buzz(BUZZ.shield);herald(say('blocked',{name:p.name}),{dur:2.2});return;}
+  world.hitTower(h.id,false,st.type,h.dmg);p.towers=h.towers;p.shields=h.shields;sfx.scream(at(.08),1+Math.random()*.3);sfx.gore(at(.12));
   if(st.type!=='pulver')sfx.impact(0,.8);
-  if(h.fell){await wait(.75);world.fallCastle(h.id);p.alive=false;sfx.crumble();sfx.explosion(0,.7);[0,.25,.5].forEach(d=>sfx.scream(at(d),.85+Math.random()*.5));sfx.gore(at(.3),1.6);
-    sfx.bell(at(1.1),45,.4);buzz(BUZZ.fall);herald(say('fall',{name:p.name}),{dur:3});await wait(1.6);sfx.ghost();}
-  else herald(say(h.towers===1?'lastTower':'hit',{name:p.name,t:h.towers}),{dur:2.2});}
+  if(h.fell){await wait(.75);world.fallCastle(h.id);p.alive=false;p.shields=0;p.boosts=0;sfx.crumble();sfx.explosion(0,.7);[0,.25,.5].forEach(d=>sfx.scream(at(d),.85+Math.random()*.5));sfx.gore(at(.3),1.6);
+    sfx.bell(at(1.1),45,.4);buzz(BUZZ.fall);herald(say('fall',{name:p.name}),{dur:3});
+    if(cfg.killcam){sfx.slowmo();await guard(world.killcam(h.id));}
+    await wait(1.6);sfx.ghost();}
+  else herald(say(h.dmg>1?'double':h.towers===1?'lastTower':'hit',{name:p.name,t:h.towers}),{dur:2.2});}
 
 /* ---------- Spielablauf (am Tisch und als Online-Gastgeber) ---------- */
 let mode='offline',paused=false;
@@ -189,8 +206,8 @@ async function runMatch(io,names){
   for(;;){gameNo++;
     const r=await runGame(io,names,positions,gameNo);positions=r.positions;wins[r.winner]++;
     const need=Math.ceil((+cfg.match||1)/2),matchWinner=wins[r.winner]>=need?r.winner:null;
-    const g=r.g;await act(io,{k:'king',id:r.winner,kingmakers:R.kingmakers(g),matchWinner:(+cfg.match||1)>1?matchWinner:null});
-    const ranking=g.players.map(p=>({id:p.id,name:p.name,color:p.color,crestIcon:p.crestIcon,crest:p.crest,place:p.place,ghostPts:p.ghostPts,kingmaker:R.kingmakers(g).includes(p.id)})).sort((a,b)=>a.place-b.place||b.ghostPts-a.ghostPts);
+    const g=r.g;await act(io,{k:'king',id:r.winner,matchWinner:(+cfg.match||1)>1?matchWinner:null});
+    const ranking=g.players.map(p=>({id:p.id,name:p.name,color:p.color,crestIcon:p.crestIcon,crest:p.crest,place:p.place,revenge:p.revenge,hits:p.hitsTaken})).sort((a,b)=>a.place-b.place||b.revenge-a.revenge);
     const res={k:'result',winner:r.winner,ranking,wins:wins.slice(),match:+cfg.match||1,matchWinner,gameNo,seed:g.seed,rounds:g.round};
     emitEv('result',{...res,log:g.log,players:g.players});
     await act(io,res);
@@ -203,34 +220,41 @@ async function runGame(io,names,positions,gameNo){
   await act(io,{k:'setup',preset:Q.get('preset')||randPreset(),names:names.map(n=>n.name),cids:names.map(n=>n.cid||null),gameNo});
   if(!positions)positions=await io.place(names);
   else for(let i=0;i<names.length;i++)await act(io,{k:'build',id:i,x:positions[i].x,z:positions[i].z,fast:true});
-  const g=R.createGame({players:names.map((n,i)=>({name:n.name,x:positions[i].x,z:positions[i].z})),attacks:cfg.attacks,betMode:cfg.betMode});
+  const g=R.createGame({players:names.map((n,i)=>({name:n.name,x:positions[i].x,z:positions[i].z})),attacks:cfg.attacks,boostType:cfg.boostType,stack:cfg.stack,tempo:cfg.tempo,ghostCurse:cfg.ghostCurse});
   hostGame=g;
   await act(io,{k:'paint',seed:g.seed,players:g.players.map(p=>({id:p.id,color:p.color,crest:p.crest,crestIcon:p.crestIcon}))});
-  if(cfg.betMode==='start'){const kb=await io.kingBets(g);R.setKingBets(g,kb);await act(io,{k:'kingbets',bets:kb});}
   let finaleSaid=false;
   while(!g.finished){
     const n=R.strikesFor({...g,round:g.round+1});
-    await act(io,{k:'round',n:g.round+1,strikes:n});
-    let bets={};if(cfg.betMode==='round'){bets=await io.bets(g);await act(io,{k:'bets',bets});}
+    await act(io,{k:'round',n:g.round+1,strikes:n,first:g.round===0});
+    // Boosts zünden, Geister verfluchen
+    let acts={};if(R.actors(g).length){acts=await io.acts(g);await act(io,{k:'actsClose'});
+      for(const [id,t] of Object.entries(acts)){const p=g.players[id];await act(io,{k:'fire',from:+id,kind:p.alive?'boost':'geist',target:t,boostType:g.boostType});}}
     await act(io,{k:'countdown'});
-    const res=R.playRound(g,bets);emitEv('round',res);
-    for(const st of res.strikes)await act(io,{k:'strike',st});
-    await act(io,{k:'eval',res:{correct:res.correct,shieldsNext:res.shieldsNext},ghostPts:g.players.map(p=>p.ghostPts)});
+    const res=R.playRound(g,acts);emitEv('round',res);
+    let first=true;for(const st of res.strikes){await act(io,{k:'strike',st,first});first=false;}
     if(res.stechen){const ids=[...new Set(res.strikes.flatMap(s=>s.hits.filter(h=>h.fell).map(h=>h.id)))];await act(io,{k:'stechen',ids});}
+    // Getroffene wählen Boost oder Schild
+    if(res.choosers.length){const ch=await io.choices(g,res.choosers),list=[];
+      for(const id of res.choosers){const c=ch[id]||'schild';R.applyChoice(g,id,c);list.push({id,choice:c,shields:g.players[id].shields,boosts:g.players[id].boosts});}
+      emitEv('choices',list);await act(io,{k:'chosen',list});}
     if(!g.finished&&R.alivePlayers(g).length===2&&!finaleSaid){finaleSaid=true;await act(io,{k:'finale'});}
   }
   return {winner:g.winner,positions,g};
 }
 let hostGame=null;
-const betOrder=g=>[...g.players.filter(p=>p.alive),...g.players.filter(p=>!p.alive)];
 const targetIds=g=>R.alivePlayers(g).map(p=>p.id);
+/* Zünden? Bei „Eigenes Ziel“ und beim Geisterfluch danach das Ziel antippen. Liefert Ziel (oder null) bzw. undefined = nicht gezündet */
+async function askAct(id,ids,secs){const p=P(id),yes=await ask2(p.alive?'🔥 Zünden!':'👻 Verfluchen!',p.alive?'Aufheben':'Nein',secs);if(yes!=='a')return undefined;
+  if(!(!p.alive||cfg.boostType==='ziel'))return null;
+  prompt(`<b>${esc(p.name)}</b>: Welche Burg soll’s treffen?`,{secs:8});const t=await choose(ids.filter(x=>x!==id),8);return t==null?undefined:t;}
 
 /* Am Tisch: alles reihum auf einem Handy */
 const offlineIO={
   emit(){},
   async place(names){const pos=[];for(let i=0;i<names.length;i++){await present({k:'placeAsk',id:i,name:names[i].name});const g=await choosePlace(null);pos.push(g);hidePrompt();await present({k:'build',id:i,x:g.x,z:g.z});}return pos;},
-  async bets(g){const bets={};for(const p of betOrder(g)){await present({k:'betAsk',id:p.id,secs:5});const to=await choose(targetIds(g),5);if(to!=null)bets[p.id]=to;await present({k:'bet',from:p.id,to});await wait(.35);}hidePrompt();return bets;},
-  async kingBets(g){const bets={};for(const p of g.players){await present({k:'kingAsk',name:p.name,secs:6});const to=await choose(targetIds(g),6);if(to!=null){bets[p.id]=to;await present({k:'kingBet',from:p.id,to});}await wait(.3);}hidePrompt();return bets;},
+  async acts(g){const acts={};for(const id of R.actors(g)){await present({k:'actAsk',id,secs:6});const t=await askAct(id,targetIds(g),6);if(t!==undefined)acts[id]=t;await wait(.2);}hidePrompt();return acts;},
+  async choices(g,ids){const out={};for(const id of ids){await present({k:'chooseAsk',id,secs:8});const c=await ask2('🔥 Angriffs-Boost','🛡 Schild',8);out[id]=c==='a'?'boost':'schild';}hidePrompt();return out;},
   afterGame(){return guard(new Promise(res=>{$('bResNext').onclick=()=>{sfx.click();res('next');};$('bResMenu').onclick=()=>{sfx.click();res('menu');};if(AUTO&&Q.get('auto')==='loop')world.after(2,()=>res('next'));}));}
 };
 
@@ -253,11 +277,13 @@ const hostIO={
       world.after(45,()=>{for(let i=0;i<names.length;i++)if(!pos[i]){for(let t=0;t<500;t++){const x=(Math.random()*2-1)*ONLINE_REGION.x,z=ONLINE_REGION.z0+Math.random()*(ONLINE_REGION.z1-ONLINE_REGION.z0);
         if(!pos.some(p=>p&&Math.hypot(p.x-x,p.z-z)<3.1)){put(i,x,z);break;}}}});}));
     return pos;},
-  collect(kind,g,who,secs){return guard(new Promise(res=>{const got={},need=new Set(who.filter(id=>onlineIds().has(id)));const fin=()=>{inbox=null;res(got);};
-    inbox=(cid,d)=>{const i=players.findIndex(n=>n.cid===cid);if(i<0||d.t!==kind||got[i]!=null||!who.includes(i)||!targetIds(g).includes(d.to))return;got[i]=d.to;need.delete(i);if(!need.size)fin();};
-    world.after(secs+.6,fin);}));},
-  async bets(g){const who=betOrder(g).map(p=>p.id),secs=10;await act(this,{k:'betOpen',secs,ids:targetIds(g),who});return this.collect('bet',g,who,secs);},
-  async kingBets(g){const who=g.players.map(p=>p.id),secs=10;await act(this,{k:'kingOpen',secs,ids:targetIds(g)});return this.collect('king',g,who,secs);},
+  collect(kind,who,secs,valid){return guard(new Promise(res=>{const got={},need=new Set(who.filter(id=>onlineIds().has(id)));const fin=()=>{inbox=null;res(got);};if(!need.size)return fin();
+    inbox=(cid,d)=>{const i=players.findIndex(n=>n.cid===cid);if(i<0||d.t!==kind||i in got||!who.includes(i))return;const v=valid(d,i);if(v===undefined)return;got[i]=v;need.delete(i);if(!need.size)fin();};
+    world.after(secs+(kind==='act'?9:.6),fin);}));},
+  async acts(g){const who=R.actors(g),secs=8;await act(this,{k:'actOpen',secs,ids:targetIds(g),who});
+    const got=await this.collect('act',who,secs,(d,i)=>d.skip?'skip':d.to==null?(R.needsTarget(g,i)?undefined:null):targetIds(g).includes(d.to)&&d.to!==i?d.to:undefined);
+    for(const k of Object.keys(got))if(got[k]==='skip')delete got[k];return got;},
+  async choices(g,ids){const secs=8;await act(this,{k:'chooseOpen',secs,who:ids});return this.collect('choice',ids,secs,d=>['boost','schild'].includes(d.c)?d.c:undefined);},
   afterGame(){return guard(new Promise(res=>{$('bResNext').onclick=()=>{sfx.click();res('next');};$('bResMenu').onclick=()=>{sfx.click();res('menu');};}));}
 };
 const onlineIds=()=>{const on=new Set(roster.filter(m=>m.online).map(m=>m.cid));return new Set(players.map((p,i)=>on.has(p.cid)?i:-1).filter(i=>i>=0));};
@@ -270,10 +296,10 @@ async function drain(){evBusy=true;while(evQueue.length){const s=evQueue.shift()
     try{await present(s);}catch(e){if(e===ABORT){evQueue.length=0;break;}console.error(e);}}evBusy=false;}
 
 /* Zustand für Nachzügler (Gast verbindet sich mitten im Spiel neu) */
-function snapshot(){return {k:'sync',preset:world.presetKey,cids:players.map(p=>p.cid),seed:hostGame?.seed||'',players:view.players.map(p=>({...p})),finale:view.finale};}
+function snapshot(){return {k:'sync',preset:world.presetKey,cids:players.map(p=>p.cid),seed:hostGame?.seed||'',players:view.players.map(p=>({...p})),finale:view.finale,cfg:{ghostCurse:cfg.ghostCurse}};}
 function applySync(s){newRun();world.clearCastles();world.setTitle(false);world.setPreset(s.preset);resetLabels();hideScreens();hidePrompt();
-  view={players:s.players,bets:{},kingBets:{},me:myIndex(s.cids),finale:s.finale};$('seed').textContent=s.seed?'Seed '+s.seed:'';
-  for(const p of view.players)if(p.placed)world.restore(p.id,p.x,p.z,p.color,p.towers,p.alive,p.shield);
+  view={players:s.players,me:myIndex(s.cids),finale:s.finale};$('seed').textContent=s.seed?'Seed '+s.seed:'';
+  for(const p of view.players)if(p.placed)world.restore(p.id,p.x,p.z,p.color,p.towers,p.alive,p.shields);
   world.fitCamera(view.players.filter(p=>p.placed).map(p=>({x:p.x,z:p.z})));mood(view.finale?'finale':'taverne');herald('Wieder dabei!',{dur:1.6});}
 
 /* ---------- Online: Lobby und Raum ---------- */
@@ -322,27 +348,28 @@ function showResult(s){const host=mode!=='guest';
   $('resTitle').textContent=s.matchWinner!=null&&s.match>1?'Großkönig '+s.ranking.find(r=>r.id===s.matchWinner).name+'!':'Lang lebe König '+s.ranking[0].name+'!';
   $('resMatch').textContent=s.match>1?`Best of ${s.match} · Stand: `+s.ranking.slice().sort((a,b)=>a.id-b.id).map(r=>`${r.name} ${s.wins[r.id]}`).join(' · '):`${s.rounds} Runden`;
   $('resRank').innerHTML=s.ranking.map(r=>`<div class="rk ${r.place===1?'k':''}"><span class="pos">${r.place===1?'👑':r.place+'.'}</span><span class="sw" style="background:${r.color}">${r.crestIcon}</span><span class="nm">${esc(r.name)}</span>
-    <span class="ex">${r.ghostPts?r.ghostPts+' 👻':''}${r.kingmaker?' 🎯 Königsmacher':''}</span></div>`).join('');
+    <span class="ex">${r.revenge?r.revenge+' 🔥 Rache':''}</span></div>`).join('');
   $('resExtra').textContent='Seed '+s.seed;
   $('bResNext').textContent=s.matchWinner!=null||s.match===1?'Nochmal!':'Nächste Partie';
   $('bResNext').classList.toggle('hide',!host);$('bResMenu').textContent=mode==='offline'?'Menü':host?'Zum Raum':'Verlassen';
   if(!host){$('bResMenu').onclick=()=>{if(net)net.close();net=null;goMenu();};$('resExtra').textContent='Der Gastgeber entscheidet, wie’s weitergeht…';}
   // Ruhmeshalle: jedes Gerät führt seine eigene
-  const hall=store.get('hall',{});for(const r of s.ranking){const h=hall[r.name]||(hall[r.name]={kings:0,games:0,great:0,ghost:0,maker:0});
-    h.games++;if(r.place===1)h.kings++;h.ghost+=r.ghostPts;if(r.kingmaker)h.maker++;if(s.matchWinner===r.id&&s.match>1)h.great++;}
+  const hall=store.get('hall',{});for(const r of s.ranking){const h=hall[r.name]||(hall[r.name]={kings:0,games:0,great:0});
+    h.games++;if(r.place===1)h.kings++;h.revenge=(h.revenge||0)+(r.revenge||0);if(s.matchWinner===r.id&&s.match>1)h.great++;}
   store.set('hall',hall);
   setTimeout(()=>show('result'),400/SPEED);}
 function renderHall(){const hall=Object.entries(store.get('hall',{})).sort((a,b)=>b[1].kings-a[1].kings||b[1].great-a[1].great||b[1].games-a[1].games);
-  $('hallBody').innerHTML=hall.length?`<table class="hall"><tr><th>Name</th><th class="c">👑</th><th class="c">⚜</th><th class="c">Partien</th><th class="c">👻</th><th class="c">🎯</th></tr>
-    ${hall.map(([n,h])=>`<tr><td>${esc(n)}</td><td class="c">${h.kings}</td><td class="c">${h.great}</td><td class="c">${h.games}</td><td class="c">${h.ghost}</td><td class="c">${h.maker}</td></tr>`).join('')}</table>
-    <p class="lead" style="font-size:.9rem">👑 Krönungen · ⚜ Großkönig (Best-of) · 👻 Geisterpunkte · 🎯 Königsmacher</p>`:'<p class="lead center" style="text-align:center">Noch hat keiner a Kron’ getragen.</p>';}
+  $('hallBody').innerHTML=hall.length?`<table class="hall"><tr><th>Name</th><th class="c">👑</th><th class="c">⚜</th><th class="c">Partien</th><th class="c">🔥</th></tr>
+    ${hall.map(([n,h])=>`<tr><td>${esc(n)}</td><td class="c">${h.kings}</td><td class="c">${h.great}</td><td class="c">${h.games}</td><td class="c">${h.revenge||0}</td></tr>`).join('')}</table>
+    <p class="lead" style="font-size:.9rem">👑 Krönungen · ⚜ Großkönig (Best-of) · 🔥 Rache-Treffer (Boost und Geisterfluch)</p>`:'<p class="lead center" style="text-align:center">Noch hat keiner a Kron’ getragen.</p>';}
 
 /* ---------- Einstellungen ---------- */
 function mountSettings(box){box.innerHTML='';box.appendChild($('settingsTpl').content.cloneNode(true));box.querySelectorAll('input[type=radio]').forEach(r=>r.name=box.id+'_'+r.name);
   box.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.k;seg.querySelectorAll('input').forEach(inp=>{
-    if(k==='attacks')inp.checked=cfg.attacks.includes(inp.value);else inp.checked=String(k==='camFx'?(cfg.camFx?1:0):cfg[k])===inp.value;
+    const bool=['camFx','ghostCurse','killcam'].includes(k);
+    if(k==='attacks')inp.checked=cfg.attacks.includes(inp.value);else inp.checked=String(bool?(cfg[k]?1:0):cfg[k])===inp.value;
     inp.onchange=()=>{sfx.click();if(k==='attacks'){const on=[...seg.querySelectorAll('input:checked')].map(i=>i.value);if(!on.length){inp.checked=true;return;}cfg.attacks=on;}
-      else if(k==='camFx')cfg.camFx=inp.value==='1';else if(k==='match')cfg.match=+inp.value;else cfg[k]=inp.value;
+      else if(bool)cfg[k]=inp.value==='1';else if(k==='match')cfg.match=+inp.value;else cfg[k]=inp.value;
       world.effects=cfg.camFx;store.set('settings',cfg);};});});}
 
 /* ---------- Spieler-Eingabe (am Tisch) ---------- */
@@ -362,7 +389,7 @@ async function startOffline(list){mode='offline';newRun();initAudio();
 let demoGen=0;
 function startDemo(){const my=++demoGen;world.setPreset(['abend','nacht','tag'][Math.floor(Math.random()*3)]);
   const spots=[[-5,-2],[4.5,-3.5],[0,3.5],[-3,6],[6,3]],cols=['#d63a3a','#2f6fd6','#2fa84f','#e0b12a','#8e44c8'];
-  spots.forEach((s,i)=>world.addCastle(100+i,s[0],s[1],cols[i]));
+  spots.forEach((s,i)=>world.addCastle(100+i,s[0],s[1],cols[i]));world.life.populate();
   const tick=()=>{if(my!==demoGen)return;const ids=[...world.castles.keys()].filter(id=>!world.castle(id).fallen),id=ids[Math.floor(Math.random()*ids.length)];
     if(id!=null){const c=world.castle(id),attack=Math.random()<.5?world.catapult(id):world.keg(id);
       attack.then(()=>{if(my!==demoGen)return;world.hitTower(id,false);if(!c.towers.some(t=>t.up)){world.fallCastle(id);world.after(5,()=>{if(my===demoGen)world.revive(id),c.towers.forEach(t=>{t.up=true;});});}});}
@@ -416,7 +443,7 @@ requestAnimationFrame(frame);
 if(/androidplatform\.net$/.test(location.hostname))$('apkLink').classList.add('hide');
 window.__kf={world,R,get view(){return view;},get cfg(){return cfg;},present};
 goMenu();$('fade').style.opacity=0;
-if(AUTO){cfg={...DEFAULTS,...cfg};if(Q.get('attacks'))cfg.attacks=Q.get('attacks').split(',');if(Q.get('bet'))cfg.betMode=Q.get('bet');if(Q.get('match'))cfg.match=+Q.get('match');if(Q.has('nofx'))cfg.camFx=false;
+if(AUTO){cfg={...DEFAULTS,...cfg};if(Q.get('attacks'))cfg.attacks=Q.get('attacks').split(',');for(const k of ['boostType','stack','tempo','cam'])if(Q.get(k))cfg[k]=Q.get(k);if(Q.has('noghost'))cfg.ghostCurse=false;if(Q.has('nokill'))cfg.killcam=false;if(Q.get('match'))cfg.match=+Q.get('match');if(Q.has('nofx'))cfg.camFx=false;
   startOffline((Q.get('names')||'Anna,Bert,Cleo,Dora').split(','));}
 else if(Q.get('raum')){$('myName').value=store.get('myName','');$('joinCode').value=Q.get('raum').toUpperCase();show('online');refreshLobby();if(store.get('myName',''))joinRoom(Q.get('raum'));else $('myName').focus();}
 else if(!store.get('seenRules',false)){rulesBack='menu';show('rules');}

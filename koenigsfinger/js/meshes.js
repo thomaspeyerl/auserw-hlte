@@ -65,32 +65,36 @@ export function forest(palette,avoid){const mb=new MB();seed=777;
   return mb.build();}
 
 /* ---------- Burg (Mittelpunkt 0/0, Radius ~1.3; Vorderseite +z zur Kamera) ---------- */
-export const TOWER_ANG=[-Math.PI/2,Math.PI/6,Math.PI*5/6];   // hinten, vorne rechts, vorne links
-export const TOWER_R=.95,BASE_Y=.18;
+export const NT=5;   // fünf Türme = fünf Leben
+export const TOWER_ANG=Array.from({length:NT},(_,i)=>-Math.PI/2+i*Math.PI*2/NT);   // 0 hinten, dann im Uhrzeigersinn; 2 und 3 vorne
+export const TOWER_R=1.05,BASE_Y=.18;
+export const GATE=[2,3];   // Torhaus zwischen diesen Türmen
 export const towerPos=i=>[Math.cos(TOWER_ANG[i])*TOWER_R,BASE_Y,Math.sin(TOWER_ANG[i])*TOWER_R];
 function crenel(mb,x,y,z,len,ang,col){const n=Math.max(2,Math.round(len/.16));for(let i=0;i<n;i++){const t=(i+.5)/n-.5;if(i%2)continue;
   mb.box(x+Math.cos(ang)*t*len,y,z-Math.sin(ang)*t*len,.09,.09,.18,col,0,ang);}}
 export function castleCore(){const mb=new MB();seed=1;
-  mb.cyl(0,-.05,0,1.55,BASE_Y+.05,10,C.dirt,0,{r2:1.42});
-  mb.cyl(0,BASE_Y,0,1.3,.04,10,C.stoneD,0,{r2:1.28});
+  mb.cyl(0,-.05,0,1.62,BASE_Y+.05,10,C.dirt,0,{r2:1.5});
+  mb.cyl(0,BASE_Y,0,1.38,.04,10,C.stoneD,0,{r2:1.36});
   // Bergfried mit Zinnen und Tor
   mb.box(0,BASE_Y,-.05,.86,1.05,.86,C.stoneL);
   for(let i=0;i<4;i++){const a=i*Math.PI/2;crenel(mb,Math.sin(a)*.4,BASE_Y+1.05,-.05+Math.cos(a)*.4,.86,a+Math.PI/2,C.stoneL);}
   mb.box(0,BASE_Y,.38,.26,.38,.04,C.dark);mb.box(0,BASE_Y+.62,.39,.1,.16,.02,C.dark);mb.box(-.25,BASE_Y+.62,.39,.08,.14,.02,C.dark);mb.box(.25,BASE_Y+.62,.39,.08,.14,.02,C.dark);
   // Mauern zwischen den Türmen, vorne mit Torhaus
-  for(let i=0;i<3;i++){const a=towerPos(i),b=towerPos((i+1)%3),mx=(a[0]+b[0])/2,mz=(a[2]+b[2])/2,len=Math.hypot(b[0]-a[0],b[2]-a[2])-.5,ang=Math.atan2(-(b[2]-a[2]),b[0]-a[0]);
+  for(let i=0;i<NT;i++){const a=towerPos(i),b=towerPos((i+1)%NT),mx=(a[0]+b[0])/2,mz=(a[2]+b[2])/2,len=Math.hypot(b[0]-a[0],b[2]-a[2])-.5,ang=Math.atan2(-(b[2]-a[2]),b[0]-a[0]);
     mb.box(mx,BASE_Y,mz,len,.55,.18,C.stone,0,ang);crenel(mb,mx,BASE_Y+.55,mz,len,ang,C.stone);}
-  const f=[(towerPos(1)[0]+towerPos(2)[0])/2,0,(towerPos(1)[2]+towerPos(2)[2])/2];
+  const f=[(towerPos(GATE[0])[0]+towerPos(GATE[1])[0])/2,0,(towerPos(GATE[0])[2]+towerPos(GATE[1])[2])/2];
   mb.box(f[0],BASE_Y,f[2]+.02,.42,.72,.3,C.stoneL);mb.box(f[0],BASE_Y,f[2]+.17,.24,.36,.02,C.dark);mb.box(f[0],BASE_Y+.72,f[2]+.02,.46,.06,.34,C.stoneD);
+  // Kamin mit Rauch (Rauch kommt aus der Welt) und Holzstapel im Hof
+  mb.box(-.28,BASE_Y+1.05,.18,.12,.22,.12,C.stoneD);mb.box(.62,BASE_Y,-.1,.18,.12,.12,C.wood);mb.box(.62,BASE_Y+.12,-.1,.14,.1,.1,C.woodD);
   // Fahnenmast
   mb.box(.3,BASE_Y+1.05,-.3,.04,.9,.04,C.woodD);
   return mb.build();}
 export function tower(){const mb=new MB();seed=2;
-  mb.cyl(0,0,0,.31,1.42,8,C.stone,0,{r2:.29,top:false});mb.cyl(0,1.42,0,.37,.1,8,C.stoneL,0,{top:true});
-  for(let i=0;i<8;i+=2){const a=i/8*6.2832+.2;mb.box(Math.cos(a)*.33,1.52,Math.sin(a)*.33,.11,.1,.1,C.stoneL,0,-a);}
-  mb.cone(0,1.52,0,.4,.62,8,[1,1,1],1);
-  for(const y of [.55,.95]){mb.box(0,y,.29,.05,.14,.03,C.dark);}
-  mb.box(0,.7,.31,.04,.06,.04,C.fire,3);   // Fackel
+  mb.cyl(0,0,0,.27,1.42,8,C.stone,0,{r2:.25,top:false});mb.cyl(0,1.42,0,.33,.1,8,C.stoneL,0,{top:true});
+  for(let i=0;i<8;i+=2){const a=i/8*6.2832+.2;mb.box(Math.cos(a)*.29,1.52,Math.sin(a)*.29,.1,.1,.09,C.stoneL,0,-a);}
+  mb.cone(0,1.52,0,.36,.58,8,[1,1,1],1);
+  for(const y of [.55,.95]){mb.box(0,y,.25,.05,.14,.03,C.dark);}
+  mb.box(0,.7,.27,.04,.06,.04,C.fire,3);   // Fackel
   return mb.build();}
 export function rubble(){const mb=new MB();seed=3;
   mb.cyl(0,0,0,.33,.32,8,C.stoneD,0,{r2:.26,jit:.7});
@@ -111,6 +115,29 @@ export function figure(lord=false){const mb=new MB();seed=lord?6:5;const s=lord?
   return mb.build();}
 export function ghost(){const mb=new MB();seed=7;mb.ball(0,.55,0,.22,C.white,6,{lat:4,lon:8});mb.cone(0,0,0,.24,.5,8,C.white,6);
   mb.box(-.07,.55,.19,.05,.07,.02,C.dark,6);mb.box(.07,.55,.19,.05,.07,.02,C.dark,6);return mb.build();}
+
+/* ---------- Leben in der Welt ---------- */
+// Leiche: liegende Figur (Wache, Bauer) – wird in der Welt flach hingelegt; dazu Gliedmaßen als eigene Teile
+export function farmer(){const mb=new MB();seed=20;const T=[.55,.42,.26];
+  mb.box(-.035,0,0,.05,.1,.06,C.woodD);mb.box(.035,0,0,.05,.1,.06,C.woodD);mb.box(0,.1,0,.13,.13,.08,T);mb.box(0,.23,0,.08,.08,.08,C.skin);
+  mb.cyl(0,.3,0,.12,.015,8,[.85,.72,.35]);mb.cone(0,.31,0,.07,.07,8,[.85,.72,.35]);mb.box(.1,.02,0,.015,.32,.015,C.wood);mb.box(.1,.32,0,.07,.015,.02,C.metal,4);return mb.build();}
+export function cow(){const mb=new MB();seed=21;const W=[.92,.9,.86],B=[.12,.1,.1];
+  for(const [x,z] of [[-.13,-.07],[.13,-.07],[-.13,.07],[.13,.07]])mb.box(x,0,z,.05,.16,.05,W);
+  mb.box(0,.16,0,.38,.17,.18,W);mb.box(-.06,.2,.091,.12,.08,.005,B);mb.box(.09,.18,-.091,.1,.09,.005,B);mb.box(.07,.33,0,.1,.005,.1,B);
+  mb.box(.24,.22,0,.12,.11,.11,W);mb.box(.3,.22,0,.04,.06,.1,[.9,.65,.6]);mb.box(.22,.33,.05,.02,.04,.02,C.stoneL);mb.box(.22,.33,-.05,.02,.04,.02,C.stoneL);
+  mb.box(-.2,.2,0,.02,.12,.02,W);return mb.build();}
+export function sheep(){const mb=new MB();seed=22;const W=[.96,.95,.9],D=[.15,.13,.12];
+  for(const [x,z] of [[-.08,-.05],[.08,-.05],[-.08,.05],[.08,.05]])mb.box(x,0,z,.035,.1,.035,D);
+  mb.ball(0,.17,0,.14,W,0,{lat:3,lon:6,jit:.25,sy:.8});mb.box(.15,.2,0,.08,.08,.07,D);return mb.build();}
+export function crow(){const mb=new MB();seed=23;const K=[.06,.06,.08];
+  mb.ball(0,0,0,.06,K,0,{lat:3,lon:5,sy:.8});mb.box(.07,.02,0,.05,.045,.045,K);mb.cone(.1,.03,0,.015,.04,4,[.2,.18,.1]);mb.tri([-.05,0,0],[-.13,.01,.03],[-.13,.01,-.03],K);
+  return mb.build();}
+export function crowWing(){const mb=new MB();const K=[.08,.08,.1];mb.tri([0,0,-.02],[0,0,.14],[-.06,0,.1],K);mb.tri([0,0,-.02],[-.06,0,.1],[0,0,.14],K);return mb.build();}
+export function witch(){const mb=new MB();seed=24;const R=[.12,.08,.16],G=[.45,.62,.32];
+  mb.cone(0,0,0,.14,.32,7,R);mb.box(0,.28,0,.09,.09,.09,G);mb.box(.05,.29,0,.03,.02,.03,G);
+  mb.cyl(0,.35,0,.14,.015,8,R);mb.cone(0,.36,0,.07,.24,6,R);mb.box(-.06,.16,0,.12,.03,.03,R);mb.box(.06,.16,0,.12,.03,.03,R);
+  mb.box(0,.04,0,.5,.025,.025,C.wood);mb.cone(-.27,.04,0,.07,.12,6,[.7,.55,.25]);return mb.build();}
+export function limb(){const mb=new MB();seed=25;mb.box(0,-.06,0,.04,.12,.04,C.skin);mb.box(0,-.07,0,.045,.03,.045,[.6,.03,.03]);return mb.build();}
 
 /* ---------- Angreifer und Geschosse ---------- */
 export function boulder(){const mb=new MB();seed=8;mb.ball(0,0,0,.28,C.rock,0,{lat:4,lon:6,jit:.3});return mb.build();}
