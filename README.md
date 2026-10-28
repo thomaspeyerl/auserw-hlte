@@ -52,7 +52,7 @@ Der Zufallskern steht in `index.html` im Block `<script id="fate">` und kommt oh
 
 1. Jede Runde holt einen frischen 128-Bit-Seed aus `crypto.getRandomValues` (Web Crypto) und mischt Zeit und Touch-Bewegungen dazu.
 2. Daraus erzeugt der Pseudozufallsgenerator **sfc32** die Ziehung: Gewinner und Startpunkt der Markierung werden unabhängig voneinander gleichverteilt gezogen.
-3. Die Markierung springt danach 3–5 Runden im Kreis und hält genau auf dem bereits gezogenen Gewinner. Die Animation ist reine Show und beeinflusst das Ergebnis nicht.
+3. Die Markierung springt danach erst wild kreuz und quer zwischen den Fingern hin und her. Dann läuft sie ein bis zwei Runden im Uhrzeigersinn aus, wird immer langsamer und hält genau auf dem bereits gezogenen Gewinner. Der Weg ist reine Show: Er wird erst nach dem Gewinner aus demselben Seed erzeugt und beeinflusst das Ergebnis nicht.
 
 ## Tests
 

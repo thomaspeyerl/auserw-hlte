@@ -115,9 +115,17 @@ function freshSeed(){const s=new Uint32Array(4);
 /* Finger im Uhrzeigersinn um ihren Schwerpunkt – in dieser Reihenfolge springt die Auswahl */
 function ring(list){let cx=0,cy=0;list.forEach(f=>{cx+=f.x;cy+=f.y;});cx/=list.length;cy/=list.length;
   return list.slice().sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));}
-/* Gewinner und Startpunkt unabhängig ziehen; nach steps Sprüngen steht die Markierung genau auf dem Gewinner */
-function plan(n,rng){const win=Math.floor(rng()*n),start=Math.floor(rng()*n),laps=(n>=5?3:4)+Math.floor(rng()*2);
-  return {win,start,laps,steps:laps*n+((win-start+n)%n)};}
+/* Gewinner und Startpunkt unabhängig ziehen (immer zuerst, damit die Fairness nicht vom Weg abhängt).
+   Der Weg der Markierung: erst `chaos` wilde Sprünge kreuz und quer, dann ein bis zwei Runden im Uhrzeigersinn
+   auslaufend – nach genau `steps` Sprüngen steht sie auf dem Gewinner. Bei 2 Spielern gibt es nur Hin und Her. */
+function plan(n,rng){const win=Math.floor(rng()*n),start=Math.floor(rng()*n),path=[start];let cur=start;
+  if(n<3){const steps=(4+Math.floor(rng()*2))*n+((win-start+n)%n);for(let i=0;i<steps;i++){cur=(cur+1)%n;path.push(cur);}return {win,start,steps,chaos:0,path};}
+  const C=10+2*n+Math.floor(rng()*n),F=n+1+Math.floor(rng()*n),o=((win-F)%n+n)%n;
+  for(let j=1;j<=C;j++){let nx=o;
+    if(j<C){const ban=j===C-1?o:-1;do nx=Math.floor(rng()*n);while(nx===cur||nx===ban);}
+    path.push(nx);cur=nx;}
+  for(let j=0;j<F;j++){cur=(cur+1)%n;path.push(cur);}
+  return {win,start,steps:C+F,chaos:C,path};}
 function draw(list){const s=freshSeed(),rng=sfc32(s[0],s[1],s[2],s[3]);for(let i=0;i<24;i++)rng();
   const p=plan(list.length,rng);p.order=ring(list);p.hex=[...s].map(v=>v.toString(16).padStart(8,'0')).join('').toUpperCase();return p;}
 return {mix,sfc32,freshSeed,ring,plan,draw};
@@ -195,7 +203,7 @@ function create(ac,out){
     remove(t){t=now(t);osc('triangle',520,t,t+.4,env(t,.12,.003,.08,fxWet)).frequency.exponentialRampToValueAtTime(150,t+.15);},
     tick(i,t){t=now(t);osc('square',mtof(76+i),t,t+.2,filt('highpass',600,null,env(t,.045,.002,.03,fxDry)));},
     start(t){t=now(t);const bp=filt('bandpass',300,1.5,env(t,.28,.15,.25,fxWet));bp.frequency.exponentialRampToValueAtTime(4500,t+.6);noise(t,1,bp);osc('sine',60,t,t+.9,env(t,.35,.02,.2,fxDry)).frequency.exponentialRampToValueAtTime(130,t+.5);},
-    hop(p,t){t=now(t);osc('square',mtof(60+Math.round(p*24)),t,t+.3,filt('lowpass',1500+p*4000,3,env(t,.06+p*.06,.002,.05,fxWet)));},
+    hop(p,t,j){t=now(t);osc('square',mtof(60+Math.round(p*24)+(j||0)),t,t+.3,filt('lowpass',1500+p*4000,3,env(t,.06+p*.06,.002,.05,fxWet)));},
     beat(t){t=now(t);osc('sine',62,t,t+.6,env(t,.9,.004,.11,fxDry)).frequency.exponentialRampToValueAtTime(38,t+.2);noise(t,.05,filt('lowpass',600,null,env(t,.15,.001,.02,fxDry)));},
     impact(t){t=now(t);osc('sine',95,t,t+1.6,env(t,1,.005,.45,fxDry)).frequency.exponentialRampToValueAtTime(26,t+1.3);
       const lp=filt('lowpass',9000,.8,env(t,.5,.002,.35,fxWet));lp.frequency.exponentialRampToValueAtTime(120,t+1.2);noise(t,1.6,lp);
@@ -246,10 +254,10 @@ document.addEventListener('visibilitychange',()=>{if(AC)document.hidden?AC.suspe
 
 /* ---------- Zustand ---------- */
 const fingers=new Map(),touches=new Set(),parts=[],rings=[],MAXF=12,MAXP=6500;
-let state='idle',waitStart=0,lastTick=-1,order=[],hl=-1,steps=0,step=0,nextAt=0,finalHold=false,winner=null;
+let state='idle',waitStart=0,lastTick=-1,order=[],path=[],chaosN=0,hl=-1,steps=0,step=0,nextAt=0,finalHold=false,winner=null;
 let finaleStart=0,doneStart=0,resetAt=0,nextFw=0,round=0,mouseN=0,shake=0,flash=0,flashCol='#ffffff',beam=null;
 let seedHex='',sweep=0,nextGhost=0,chroma=0,beats=[],idleA=1,linkA=0,hubPos={x:0,y:0},crownOn=false,crownT0=0,camScroll=0,camSpd=1.4,camKick=0;
-const WAIT=1500,PICK_MS=5600;let baseR=44,delays=[];
+const WAIT=1500,TAIL_MS=4800;let baseR=44,delays=[];
 
 function addP(p){if(parts.length<MAXP)parts.push(p);}
 function burst(x,y,col,n,spd,sz){for(let i=0;i<n;i++){const a=Math.random()*6.2832,s=(.25+Math.random())*spd,life=28+Math.random()*50;
@@ -317,7 +325,10 @@ updHud();
 
 /* ---------- Auswahl ---------- */
 function startChoosing(){const now=performance.now(),p=Fate.draw([...fingers.values()]);
-  order=p.order;steps=p.steps;step=0;{let sw=0;const w=[];for(let i=1;i<=steps;i++){const v=.05+Math.pow(i/steps,3.2);w.push(v);sw+=v;}delays=w.map(v=>Math.min(950,Math.max(28,PICK_MS*v/sw)));}hl=p.start;winner=order[p.win];nextAt=now+260;finalHold=false;state='choosing';round++;seedHex=p.hex;
+  order=p.order;steps=p.steps;step=0;path=p.path;chaosN=p.chaos;
+  /* Takt: Chaos-Sprünge unregelmäßig schnell (Zufall nur für die Optik), danach Auslauf, der immer langsamer wird */
+  delays=[];for(let i=0;i<chaosN;i++)delays.push((95+70*i/chaosN)*(.65+.7*Math.random()));
+  {const F=steps-chaosN;let sw=0;const w=[];for(let i=1;i<=F;i++){const v=.08+Math.pow(i/F,2.4);w.push(v);sw+=v;}w.forEach(v=>delays.push(Math.min(1100,Math.max(90,TAIL_MS*v/sw))));}hl=p.start;winner=order[p.win];nextAt=now+260;finalHold=false;state='choosing';round++;seedHex=p.hex;
   {const c=hub(order);sweep=Math.atan2(order[hl].y-c.y,order[hl].x-c.x);pixRing(c.x,c.y,'#ffffff',700,Math.hypot(W,H)*.45,8,0,.6);}
   flash=Math.max(flash,RM?.05:.16);flashCol='#ffffff';
   seedEl.textContent='Seed 0x'+seedHex.slice(0,16)+'…';
@@ -357,10 +368,10 @@ function update(now,k){
   if(state==='choosing'){
     if(now>=nextAt){
       if(finalHold)startFinale();
-      else{const prev=order[hl];hl=(hl+1)%order.length;step++;const cur=order[hl],p=step/steps;
+      else{const prev=order[hl];step++;hl=path[step];const cur=order[hl],p=step/steps,wild=step<=chaosN;
         beam={a:prev,b:cur,t:now,col:cur.col};
         burst(cur.x,cur.y,cur.col,(18+p*34)|0,3+p*5);pixRing(cur.x,cur.y,cur.col,360,100,4);
-        if(snd){snd.sfx.hop(p);snd.energy(p);}if(!RM)shake=Math.max(shake,1+p*5);buzz(8);chroma=Math.max(chroma,RM?0:.004*p);
+        if(snd){snd.sfx.hop(p,undefined,wild?Math.floor(Math.random()*13)-6:0);snd.energy(p);}if(!RM)shake=Math.max(shake,1+p*5);buzz(8);chroma=Math.max(chroma,RM?0:.004*p);
         nextAt=now+delays[step-1];
         if(step>=steps){finalHold=true;nextAt=now+1500;beats=[now,now+380,now+900,now+1150];if(snd)[0,.38,.9,1.15].forEach(d=>snd.sfx.beat(at(d)));syncMusic();}}}
     /* Herzschlag vor der Entscheidung: Puls-Ring, Farbsaum und Ruckeln im Takt der Bässe */

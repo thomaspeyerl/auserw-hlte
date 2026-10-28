@@ -19,10 +19,10 @@ async function open(browser,opts){
   await page.evaluate(()=>{window.__results=[];addEventListener('auserw:result',e=>__results.push(e.detail));});
   return {page,errors};
 }
-const nextResult=(page,n)=>page.waitForFunction(n=>__results.length>=n,n,{timeout:30000}).then(()=>page.evaluate(n=>__results[n-1],n));
+const nextResult=(page,n)=>page.waitForFunction(n=>__results.length>=n,n,{timeout:60000}).then(()=>page.evaluate(n=>__results[n-1],n));
 const msg=page=>page.$eval('#msg',e=>e.textContent);
 
-test('Handy: vier Finger gleichzeitig, sichtbare Markierung endet auf dem gezogenen Gewinner',{skip,timeout:90000},async()=>{
+test('Handy: vier Finger gleichzeitig, sichtbare Markierung endet auf dem gezogenen Gewinner',{skip,timeout:150000},async()=>{
   const browser=await chromium.launch();
   try{
     const {page,errors}=await open(browser,{viewport:{width:390,height:844},hasTouch:true,isMobile:true});
@@ -44,7 +44,7 @@ test('Handy: vier Finger gleichzeitig, sichtbare Markierung endet auf dem gezoge
   }finally{await browser.close();}
 });
 
-test('Desktop: Klick-Runden mit drei Punkten, jede Runde mit neuem Seed',{skip,timeout:90000},async()=>{
+test('Desktop: Klick-Runden mit drei Punkten, jede Runde mit neuem Seed',{skip,timeout:150000},async()=>{
   const browser=await chromium.launch();
   try{
     const {page,errors}=await open(browser,{viewport:{width:1280,height:800}});
@@ -63,7 +63,7 @@ test('Desktop: Klick-Runden mit drei Punkten, jede Runde mit neuem Seed',{skip,t
   }finally{await browser.close();}
 });
 
-test('Musik-Engine: alle Spielphasen offline gerendert – hörbar, ohne Übersteuerung, Stille vor der Entscheidung',{skip,timeout:90000},async t=>{
+test('Musik-Engine: alle Spielphasen offline gerendert – hörbar, ohne Übersteuerung, Stille vor der Entscheidung',{skip,timeout:150000},async t=>{
   const browser=await chromium.launch();
   try{
     const {page,errors}=await open(browser,{viewport:{width:400,height:400}});
@@ -93,7 +93,7 @@ test('Musik-Engine: alle Spielphasen offline gerendert – hörbar, ohne Überst
   }finally{await browser.close();}
 });
 
-test('Ohne WebGL: Ersatz-Grafik mit Canvas 2D spielt eine komplette Runde',{skip,timeout:90000},async()=>{
+test('Ohne WebGL: Ersatz-Grafik mit Canvas 2D spielt eine komplette Runde',{skip,timeout:150000},async()=>{
   const browser=await chromium.launch({args:['--disable-3d-apis']});
   try{
     const {page,errors}=await open(browser,{viewport:{width:1280,height:800}});

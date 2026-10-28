@@ -7,8 +7,8 @@ import {loadFate,chiP,uniformity,independence,ALPHA,pct} from './helpers.mjs';
 const Fate=loadFate();
 const players=n=>Array.from({length:n},(_,id)=>({id,x:Math.random()*400,y:Math.random()*800}));
 const fmtP=p=>p<1e-4?p.toExponential(1):p.toFixed(4);
-// Liefert nacheinander die angegebenen Werte – damit lässt sich plan() gezielt ansteuern.
-const seq=(...v)=>{let i=0;return ()=>v[i++];};
+// Liefert zuerst die angegebenen Werte, danach echte Zufallszahlen – damit lässt sich plan() gezielt ansteuern.
+const seq=(...v)=>{let i=0;const r=Fate.sfc32(...Fate.freshSeed());return ()=>i<v.length?v[i++]:r();};
 
 test('Statistik-Hilfsfunktion trifft bekannte Chi-Quadrat-Quantile',()=>{
   for(const [chi,df] of [[3.841,1],[5.991,2],[11.070,5],[18.307,10],[293.248,255]])
@@ -46,13 +46,26 @@ test('Index aus rng() ist exakt fair: Abweichung höchstens 1 von 2^32 Werten',t
   t.diagnostic('jeder Spieler bekommt 2^32/n ± 1 der möglichen Zufallswerte (relative Abweichung < 3·10⁻⁹)');
 });
 
-test('Markierung landet nach steps Sprüngen immer auf dem Gewinner (alle Fälle 2–12 Spieler)',()=>{
-  for(let n=2;n<=12;n++)for(let win=0;win<n;win++)for(let start=0;start<n;start++)for(const lap of [.25,.75]){
-    const p=Fate.plan(n,seq((win+.5)/n,(start+.5)/n,lap));
+test('Weg der Markierung endet immer auf dem Gewinner (alle Fälle 2–12 Spieler, je 20 Zufallswege)',()=>{
+  for(let n=2;n<=12;n++)for(let win=0;win<n;win++)for(let start=0;start<n;start++)for(const lap of [.25,.75])for(let k=0;k<20;k++){
+    const p=Fate.plan(n,seq((win+.5)/n,(start+.5)/n,lap)),P=p.path;
     assert.equal(p.win,win);assert.equal(p.start,start);
-    let hl=p.start;for(let i=0;i<p.steps;i++)hl=(hl+1)%n; // genau so springt die Markierung im Spiel
-    assert.equal(hl,win,`n=${n} win=${win} start=${start}`);
-    assert.ok(p.steps>=3*n,'mindestens drei volle Umläufe für die Spannung');
+    assert.equal(P.length,p.steps+1);assert.equal(P[0],start);
+    assert.equal(P[p.steps],win,`n=${n} win=${win} start=${start}`); // hier bleibt die Markierung im Spiel stehen
+    for(let i=1;i<=p.steps;i++){assert.ok(Number.isInteger(P[i])&&P[i]>=0&&P[i]<n);assert.notEqual(P[i],P[i-1],'jeder Sprung wechselt den Finger');}
+    for(let i=p.chaos+1;i<=p.steps;i++)assert.equal(P[i],(P[i-1]+1)%n,'Auslauf im Uhrzeigersinn');
+    assert.ok(p.steps-p.chaos>=Math.min(p.steps,n+1),'Auslauf mindestens eine volle Runde');
+    assert.ok(p.steps>=3*n,'genug Sprünge für die Spannung');
+  }
+});
+
+test('Am Anfang springt die Markierung chaotisch statt im Kreis',t=>{
+  for(const n of [3,5,8]){let jumps=0,cw=0;
+    for(let r=0;r<3000;r++){const p=Fate.plan(n,Fate.sfc32(...Fate.freshSeed()));assert.ok(p.chaos>=n,'mindestens so viele wilde Sprünge wie Spieler');
+      for(let i=1;i<=p.chaos;i++){jumps++;if(p.path[i]===(p.path[i-1]+1)%n)cw++;}}
+    const share=cw/jumps;
+    t.diagnostic(`${n} Spieler: ${pct(share)} der Chaos-Sprünge gehen zum Nachbarn im Uhrzeigersinn (reiner Zufall: ${pct(1/(n-1))})`);
+    assert.ok(Math.abs(share-1/(n-1))<.08,`Chaos-Phase wirkt nicht zufällig: ${share}`);
   }
 });
 
@@ -100,12 +113,12 @@ test('Aufeinanderfolgende Runden sind unabhängig',t=>{
   assert.ok(r.p>ALPHA,`p=${r.p}`);
 });
 
-test('Rundenlänge: 3–4 Umläufe (ab 5 Spielern) bzw. 4–5 Umläufe, je zur Hälfte',()=>{
-  for(const n of [3,7]){
-    const allowed=n>=5?[3,4]:[4,5],counts=[0,0],list=players(n);
-    for(let r=0;r<50000;r++){const p=Fate.draw(list);const i=allowed.indexOf(p.laps);assert.ok(i>=0,`laps=${p.laps}`);counts[i]++;}
-    assert.ok(uniformity(counts).p>ALPHA,`n=${n}: ${counts}`);
-  }
+test('Länge der Auswahl: 10+2n bis 10+3n−1 Chaos-Sprünge, dann n+1 bis 2n Sprünge Auslauf',()=>{
+  for(const n of [2,3,7,12]){const list=players(n);
+    for(let r=0;r<20000;r++){const p=Fate.draw(list),tail=p.steps-p.chaos;
+      if(n<3){assert.equal(p.chaos,0);assert.ok(p.steps>=4*n&&p.steps<6*n,`steps=${p.steps}`);continue;}
+      assert.ok(p.chaos>=10+2*n&&p.chaos<=10+3*n-1,`chaos=${p.chaos}`);
+      assert.ok(tail>=n+1&&tail<=2*n,`Auslauf=${tail}`);}}
 });
 
 test('Jede Runde bekommt einen neuen Seed, alle 128 Bits ausgeglichen',t=>{
