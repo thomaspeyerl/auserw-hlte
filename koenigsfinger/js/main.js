@@ -20,7 +20,7 @@ const RET_COL={katapult:[1,.55,.15],drache:[1,.25,.1],pulver:[1,.85,.2],fluch:[.
 const BUZZ={katapult:[90,40,180],drache:[30,30,30,30,30,30,220],pulver:[320,60,120],fluch:[60,90,60,90,420],fall:[200,80,450],shield:[20,25,20,25,20]};
 const ONLINE_REGION={x:7,z0:-6,z1:7.5};
 const DEFAULTS={attacks:[...R.ATTACKS],boostType:'extra',stack:'je',tempo:'mittel',ghostCurse:true,cam:'skip',killcam:true,match:1,camFx:true};
-const FLY={kurz:1.3,film:4,skip:4};
+const FLY={kurz:1.1,film:2,skip:2};   // Sekunden pro Burg im Rückblick
 
 /* ---------- 3D-Welt ---------- */
 let world;
@@ -125,7 +125,7 @@ async function present(s){
     await wait(s.fast?.25:1.2);break;}
   case 'paint':{hidePrompt();world.setReticle(null);for(const q of s.players){const p=P(q.id);Object.assign(p,q);world.paint(q.id,q.color);sfx.coin();await wait(.22);}
     world.fitCamera(view.players.map(p=>({x:p.x,z:p.z})));world.life.populate();herald(say('lots'),{dur:2.6});$('seed').textContent='Seed '+s.seed;await wait(1.8);break;}
-  case 'round':{world.setReticle(null);hidePrompt();if(s.n>1||s.first)await camMove();mood(view.finale?'finale':'taverne');
+  case 'round':{world.setReticle(null);hidePrompt();mood(view.finale?'finale':'taverne');
     herald(say(s.strikes===1?'round1':'round',{n:s.n,k:s.strikes}),{fanfare:true,dur:2.6});sfx.drum();emitEv('roundStart',s);await wait(2.2);break;}
   case 'actAsk':{const p=P(s.id);prompt(p.alive?`<b>${esc(p.name)}</b>: Boost zünden? 🔥`:`👻 <b>${esc(p.name)}</b>: Burg verfluchen?`,{secs:s.secs});
     herald(say(p.alive?'fireAsk':'curseAsk',{name:p.name}),{dur:2.2});break;}
@@ -148,6 +148,7 @@ async function present(s){
   case 'countdown':{hidePrompt();mood('schlacht',view.finale?.9:.4);for(const c of ['3','2','1']){showCount(c);sfx.countdown();buzz(40);await wait(.8);}
     showCount(say('countdown'),true);sfx.countdown(0,true);buzz([60,40,120]);await wait(.8);$('count').innerHTML='';break;}
   case 'strike':await presentStrike(s.st,s.first);break;
+  case 'recap':await recap(s.list);break;
   case 'stechen':{herald(say('stechen'),{fanfare:true,dur:3.4});sfx.drum();await wait(1);for(const id of s.ids){world.revive(id);const p=P(id);p.towers=1;p.alive=true;p.shields=0;p.boosts=0;sfx.shieldUp();await wait(.3);}await wait(1.6);break;}
   case 'finale':view.finale=true;mood('finale');herald(say('finale'),{dur:3});sfx.heartbeat();await wait(.8);sfx.heartbeat();await wait(1.6);break;
   case 'king':{hidePrompt();world.setReticle(null);const p=P(s.id);mood('koenig');world.coronation(s.id);sfx.fanfare();sfx.bells(at(1));sfx.crowd(at(1.6),3.5);buzz([100,60,100,60,400]);
@@ -162,9 +163,12 @@ async function present(s){
 }
 
 /* Kamerafahrt zwischen den Runden (Länge einstellbar, „überspringbar“ per Tipp) */
-async function camMove(){const d=FLY[cfg.cam]||0;if(!d||!world.effects&&cfg.cam!=='kurz')return;const prev=tapHandler;
+/* Rückblick nach der Runde: Kamera fliegt zu jeder Burg, die Türme verloren hat; der Herold sagt den Schaden an */
+async function recap(list){const per=FLY[cfg.cam]||0;if(!per||!list.length)return;const prev=tapHandler;
   if(cfg.cam==='skip'){tapHandler=()=>world.skipFly();$('netState').textContent='Tippen zum Überspringen';}
-  try{await guard(world.flyby(d));}finally{if(cfg.cam==='skip'){tapHandler=prev;$('netState').textContent='';}}}
+  const say1=(id)=>{const e=list.find(x=>x.id===id),p=P(id);if(!e||!p)return;sfx.drum(0,.5);
+    herald(e.towers>0?`${p.name}: −${e.lost} ${e.lost===1?'Turm':'Türme'} – ${e.towers} ${e.towers===1?'steht':'stehen'} noch`:`${p.name}: gefallen ☠`,{dur:per*.95});};
+  try{await guard(world.tour(list.map(e=>e.id),per,say1));}finally{if(cfg.cam==='skip'){tapHandler=prev;$('netState').textContent='';}}}
 /* Ein Einschlag: Fadenkreuz springt (erst wild, dann im Kreis langsamer) mit Trommelwirbel, dann kommt der Angreifer sichtbar */
 async function presentStrike(st,first){
   const col=RET_COL[st.type],from=st.from!=null?P(st.from):null;mood('schlacht',view.finale?1:.7);
@@ -231,9 +235,11 @@ async function runGame(io,names,positions,gameNo){
     let acts={};if(R.actors(g).length){acts=await io.acts(g);await act(io,{k:'actsClose'});
       for(const [id,t] of Object.entries(acts)){const p=g.players[id];await act(io,{k:'fire',from:+id,kind:p.alive?'boost':'geist',target:t,boostType:g.boostType});}}
     await act(io,{k:'countdown'});
-    const res=R.playRound(g,acts);emitEv('round',res);
+    const before=g.players.map(p=>p.towers);const res=R.playRound(g,acts);emitEv('round',res);
     let first=true;for(const st of res.strikes){await act(io,{k:'strike',st,first});first=false;}
     if(res.stechen){const ids=[...new Set(res.strikes.flatMap(s=>s.hits.filter(h=>h.fell).map(h=>h.id)))];await act(io,{k:'stechen',ids});}
+    if(!g.finished&&!res.stechen){const list=g.players.filter(p=>p.towers<before[p.id]||res.fallen.includes(p.id)).map(p=>({id:p.id,lost:before[p.id]-p.towers,towers:p.towers}));
+      if(list.length)await act(io,{k:'recap',list});}
     // Getroffene wählen Boost oder Schild
     if(res.choosers.length){const ch=await io.choices(g,res.choosers),list=[];
       for(const id of res.choosers){const c=ch[id]||'schild';R.applyChoice(g,id,c);list.push({id,choice:c,shields:g.players[id].shields,boosts:g.players[id].boosts});}

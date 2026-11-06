@@ -76,8 +76,12 @@ export class World{
     if(c.title){const a=this.time*.08;eye=[Math.sin(a)*22,13,Math.cos(a)*22];tgt=[0,0,0];fov=.7;}
     if(c.orbit){const o=c.orbit,a=o.a0+this.time*.35-o.t0*.35,k=smooth(clamp((this.time-o.t0)/1.5,0,1));
       const oe=[o.x+Math.sin(a)*7,o.y+4.2,o.z+Math.cos(a)*7],ot=[o.x,o.y+1.2,o.z];eye=v3.lerp(eye,oe,k);tgt=v3.lerp(tgt,ot,k);fov=lerp(fov,.7,k);}
-    if(c.fly){const f=c.fly,k=clamp((this.time-f.t0)/f.dur,0,1),w=smooth(Math.min(1,Math.sin(k*Math.PI)*1.5)),a=f.a0+k*1.8;
-      eye=v3.lerp(eye,[f.cx+Math.sin(a)*14,6.5+Math.sin(k*Math.PI)*2.5,f.cz+Math.cos(a)*14],w);tgt=v3.lerp(tgt,[f.cx,.5,f.cz],w);}
+    if(c.fly){const f=c.fly,el=this.time-f.t0,n=f.stops.length,seg=Math.min(n-1,Math.floor(el/f.per)),u=el-seg*f.per;
+      // Rückblick: von Burg zu Burg, am Anfang aus der Übersicht hinein, am Ende wieder hinaus
+      const at=st=>{const dir=v3.norm(v3.sub(this.baseEye,this.baseTgt)),tg=[st.x,st.y+.9,st.z];return [v3.add(tg,v3.scale(dir,this.W<this.H?13:9.5)),tg];};
+      const cur=at(f.stops[Math.max(0,seg)]),prev=seg>0?at(f.stops[seg-1]):[eye,tgt],k=smooth(clamp(u/Math.min(.8,f.per*.5),0,1));
+      let fe=v3.lerp(prev[0],cur[0],k),ft=v3.lerp(prev[1],cur[1],k);const out=smooth(clamp((el-n*f.per)/.7,0,1));
+      eye=v3.lerp(fe,eye,out);tgt=v3.lerp(ft,tgt,out);}
     if(c.kill){const kc=c.kill,k=smooth(clamp((this.time-kc.t0)/.12,0,1)),kt=[kc.x,kc.y+1,kc.z],dir=v3.norm(v3.sub(eye,tgt));
       eye=v3.lerp(eye,v3.add(kt,v3.add(v3.scale(dir,6.5),[0,1.2,0])),k);tgt=v3.lerp(tgt,kt,k);}
     if(c.focus&&c.focusAmt>0&&this.effects){const f=c.focus,k=c.focusAmt;tgt=v3.lerp(tgt,f,k*.45);eye=v3.lerp(eye,v3.add(f,v3.scale(v3.norm(v3.sub(eye,tgt)),13)),k*.35);}
@@ -290,9 +294,10 @@ export class World{
   /* Killcam: Zeitlupe und Nahaufnahme, wenn eine Burg fällt (dauert in Echtzeit ca. 2,5 s) */
   killcam(id){const c=this.castles.get(id);if(!c)return Promise.resolve();this.ts=.22;this.cam.kill={x:c.x,y:c.y,z:c.z,t0:this.time};
     return new Promise(r=>this.after(.55,()=>{this.tween(.15,k=>{this.ts=lerp(.22,1,k);},()=>{this.ts=1;this.cam.kill=null;r();});}));}
-  /* Kamerafahrt zwischen den Runden: Schwenk über das Schlachtfeld; skipFly() beendet sie sofort */
-  flyby(dur){if(!dur)return Promise.resolve();const pts=[...this.castles.values()];let cx=0,cz=0;pts.forEach(c=>{cx+=c.x;cz+=c.z;});if(pts.length){cx/=pts.length;cz/=pts.length;}
-    return new Promise(r=>{this.cam.fly={t0:this.time,dur,a0:RAND()*6.28,cx,cz,done:r};this.after(dur,()=>this.endFly());});}
+  /* Rückblick nach der Runde: Kamera besucht nacheinander die getroffenen Burgen (per Sekunden je Burg); skipFly() beendet ihn sofort */
+  tour(ids,per,onStop){const stops=ids.map(id=>this.castles.get(id)).filter(Boolean).map(c=>({x:c.x,y:c.y,z:c.z,id:c.id}));if(!stops.length)return Promise.resolve();
+    return new Promise(r=>{this.cam.fly={t0:this.time,per,stops,done:r};stops.forEach((st,i)=>this.after(i*per+.01,()=>{if(this.cam.fly&&this.cam.fly.stops===stops)onStop&&onStop(st.id,i);}));
+      this.after(stops.length*per+.7,()=>{if(this.cam.fly&&this.cam.fly.stops===stops)this.endFly();});});}
   endFly(){const f=this.cam.fly;if(!f)return;this.cam.fly=null;f.done();}
   skipFly(){this.endFly();}
 

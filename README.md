@@ -31,7 +31,7 @@ Unter `/koenigsfinger/` liegt ein Trinkspiel für 2–8 Leute (am besten 3–6) 
 
 - **Burgen bauen:** Reihum tippt jeder dorthin, wo seine Burg stehen soll – mit Ziegelgeräusch. Farbe und Wappentier werden zugelost.
 - **Fünf Türme = fünf Leben.** Jeder Treffer reißt einen Turm ein. Wachen stürzen brennend von der Mauer oder zerplatzen, Blut läuft die Mauern hinunter und spritzt aus den Turmstümpfen. Fällt der letzte Turm, wird die Burg zur blutigen Ruine, der Burgherr zum Geist, und Krähen kommen.
-- **Runde:** Zünden → Countdown → Angriff (Fadenkreuz mit Trommelwirbel) → Wahl. Die Zahl der Geschosse pro Runde steigt je nach Tempo (kurz/mittel/lang, höchstens Lebende − 1).
+- **Runde:** Zünden → Countdown → Angriff (Fadenkreuz mit Trommelwirbel) → Rückblick → Wahl. Die Zahl der Geschosse pro Runde steigt je nach Tempo (kurz/mittel/lang, höchstens Lebende − 1).
 - **Getroffen?** Wer Türme verliert und noch steht, wählt **Angriffs-Boost** oder **Schild**. Der Schild fängt genau einen Treffer ab, bis etwas einschlägt. Den Boost hebt man auf und zündet ihn selbst vor dem Countdown. Seine Wirkung wird vor dem Spiel gewählt:
   - Doppelschaden: diese Runde kosten Treffer auf fremde Burgen zwei Türme.
   - Extra-Einschlag: ein Geschoss mehr auf eine zufällige andere Burg.
@@ -49,7 +49,9 @@ Unter `/koenigsfinger/` liegt ein Trinkspiel für 2–8 Leute (am besten 3–6) 
   - Vogelschwärme, rauchende Kamine.
   - Burgen werden Stein für Stein gebaut.
   - Wachen patrouillieren, zielen bei Alarm und rennen panisch, wenn etwas einschlägt.
-- **Kamera:** Kamerafahrten zwischen den Runden (kurz, filmisch oder filmisch mit Antippen zum Überspringen) und Killcam in Zeitlupe, wenn eine Burg fällt (abschaltbar).
+- **Kamera:**
+  - Rückblick nach jeder Runde: Die Kamera fliegt nacheinander zu jeder getroffenen Burg, der Herold sagt den Schaden an. Kurz, filmisch, oder filmisch mit Antippen zum Überspringen.
+  - Killcam in Zeitlupe, wenn eine Burg fällt (abschaltbar).
 - **Stechen:** Fallen alle übrigen Burgen gleichzeitig, stehen sie mit einem Turm wieder auf. Die letzten zwei spielen ein Finale mit Herzschlag.
 - **Krönung:** Krone senkt sich auf den Burgherrn, Glocken, Fanfaren, Feuerwerk, Kamerafahrt. Einzelspiel oder Best of 3/5, dauerhafte Ruhmeshalle (localStorage), Pause und Abbruch.
 - **Online-Modus:** Raum erstellen (Code + QR-Code) oder aus der öffentlichen Lobby beitreten. Jedes Handy zeigt die volle 3D-Ansicht. Boost, Schild und Geisterfluch wählt jeder geheim am eigenen Handy. Der Gastgeber-Browser rechnet das Spiel mit denselben Regeln und schickt jeden Schritt an alle. Wer kurz die Verbindung verliert, wird beim Wiederverbinden auf den aktuellen Stand gebracht.
