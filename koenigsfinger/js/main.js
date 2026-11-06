@@ -182,7 +182,7 @@ async function presentStrike(st,first){
     await applyHit(st,hitOf(st.target));
     if(st.chain!=null){herald(say('chain'),{dur:2});sfx.whoosh(0,1/SPEED);await guard(world.chain(st.target,st.chain));sfx.explosion(0,.8);await applyHit(st,hitOf(st.chain));}}
   else if(st.type==='drache'){sfx.wings(0,4.2/SPEED);world.setReticle(null);
-    await guard(world.dragon(st.target,st.dir,st.targets,id=>{sfx.fire(0,.9);sfx.roar(at(.1),.8);pend.push(quiet(applyHit(st,hitOf(id))));},()=>sfx.chomp()));await guard(Promise.all(pend));}
+    await guard(world.dragon(st.target,st.dir,st.targets,id=>{sfx.fire(0,.9);sfx.roar(at(.1),.8);pend.push(quiet(applyHit(st,hitOf(id))));},()=>{sfx.chomp();herald(say('dragonEat',{name:P(st.target).name}),{dur:2.6});}));await guard(Promise.all(pend));}
   else if(st.type==='fluch'){sfx.curse();await guard(world.curse(st.target));world.setReticle(null);await applyHit(st,hitOf(st.target));}
   void from;await wait(.9);}
 async function applyHit(st,h){if(!h)return;const p=P(h.id);

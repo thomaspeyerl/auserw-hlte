@@ -170,7 +170,7 @@ export function createAudio(ac,dest){
     cackle(t=now()){for(let i=0;i<7;i++){const tt=t+i*.11,g=G();g.connect(fx);const fs=[filt('bandpass',900,6,g),filt('bandpass',2400,8,g)],o=ac.createOscillator();o.type='sawtooth';
         o.frequency.setValueAtTime(520+i*25,tt);o.frequency.exponentialRampToValueAtTime(380+i*20,tt+.09);fs.forEach(f=>o.connect(f));o.start(tt);o.stop(tt+.12);env(g,tt,.005,.75,.09);}},
     chomp(t=now()){for(let i=0;i<2;i++){const tt=t+i*.18,g=G(),f=filt('lowpass',1200,2,g);g.connect(fx);noise(tt,.12,f,{brown:true});env(g,tt,.002,1,.1);}sfx.gore(t+.1,1.2);sfx.scream(t,1.3,.8);},
-    land(t=now()){const g=G();g.connect(fx);const o=osc('sine',90,t,.4,shaper(3,g));o.frequency.exponentialRampToValueAtTime(40,t+.3);env(g,t,.003,.7,.35);sfx.crumble(t);},
+    land(t=now()){const g=G();g.connect(fx);const o=osc('sine',90,t,.4,shaper(3,g));o.frequency.exponentialRampToValueAtTime(40,t+.3);env(g,t,.003,.45,.35);sfx.wings(t,.6);},
     slowmo(t=now()){const g=G();g.connect(fx);const o=osc('sine',70,t,2.5,shaper(2,g));o.frequency.exponentialRampToValueAtTime(28,t+2.2);env(g,t,.01,.7,2.3);
       const n=G(),f=filt('lowpass',500,1,n);n.connect(fx);noise(t,2.4,f,{brown:true,rate:.4});env(n,t,.05,.8,2.2);},
     boost(t=now()){sfx.fire(t,.8);const g=G();g.connect(fx);const o=osc('sawtooth',110,t,.7,filt('lowpass',2400,2,g));o.frequency.exponentialRampToValueAtTime(440,t+.5);env(g,t,.02,.22,.6);brass(t+.2,62,.5,.18,fx);brass(t+.2,69,.5,.12,fx);},

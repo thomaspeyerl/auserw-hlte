@@ -23,6 +23,7 @@ const T={
   boostExtra:['{name} schickt a Extra-Geschoss los!','{name} zündet den Boost – a Geschoss mehr!'],
   boostZiel:['{name} nimmt {target} ins Visier – Rache!','{name} hat a Rechnung offen mit {target}!'],
   ghostCurse:['Da Geist von {name} verflucht {target}! Huuu!','Aus’m Jenseits verflucht {name} die Burg von {target}!'],
+  dragonEat:['Da Drach’ landet bei {name} und frisst a Wache – koa Turm, nur a Jausn!','Der Drach’ hockt si auf {name}s Burg und holt si a Wache. Kost’ koan Turm!'],
   double:['Doppelschaden! {name} verliert gleich zwoa Türm’!'],
   countdown:['Auf die Mauern!','Haltet’s Euch fest!','Jetzt kracht’s!'],
   katapult:['Des Katapult knarzt – a Felsbrocken fliagt!','Katapult! Da kummt a Stoan daher, so groß wia a Kuah!'],

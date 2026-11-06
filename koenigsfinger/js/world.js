@@ -263,9 +263,9 @@ export class World{
         // Wende und Landung auf dem Bergfried
         const g=prey[Math.floor(RAND()*prey.length)],perch=[a.x+g.x*.55,a.y+M.BASE_Y+1.35,a.z+g.z*.55],from=drg.p.slice(),ry0=drg.ry,ry1=Math.atan2(g.x,g.z);
         this.tween(1.3,k=>{const q=smooth(k);drg.p=v3.lerp(from,perch,q);drg.p[1]+=Math.sin(q*Math.PI)*2.5;drg.ry=lerp(ry0+Math.PI,ry1,q);drg.flap=this.time*(7+k*6);drg.fold=k>.8?(k-.8)*5:0;
-            if(this.effects)this.cam.focus=drg.p,this.cam.focusAmt=.6*q;},()=>{this.kick(.8);this.onLand&&this.onLand();
+            if(this.effects)this.cam.focus=drg.p,this.cam.focusAmt=.6*q;},()=>{this.kick(.2);this.onLand&&this.onLand();
           this.tween(.9,k=>{drg.bite=Math.sin(k*Math.PI*3)*.5;drg.fold=1;drg.flap=this.time*2;},()=>{
-            if(g.alive){g.alive=false;const gp=[a.x+g.x,a.y+M.BASE_Y+.62,a.z+g.z];this.gore(gp,a.col,1.6);a.blood=Math.min(1,a.blood+.2);onChomp&&onChomp();}
+            if(g.alive){g.alive=false;const gp=[a.x+g.x,a.y+M.BASE_Y+.62,a.z+g.z];this.gore(gp,a.col,.8);onChomp&&onChomp();}
             const up=drg.p.slice(),away=v3.add(up,[rr(-12,12),9,-14]);
             this.tween(1.6,k=>{drg.p=v3.lerp(up,away,k*k);drg.fold=1-Math.min(1,k*4);drg.flap=this.time*9;},()=>{this.objs=this.objs.filter(o=>o!==drg);});
             this.cam.focusAmt=0;res();});});});});}
