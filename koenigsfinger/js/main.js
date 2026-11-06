@@ -19,7 +19,7 @@ const NEUTRAL='#a89a86';
 const RET_COL={katapult:[1,.55,.15],drache:[1,.25,.1],pulver:[1,.85,.2],fluch:[.75,.3,1]};
 const BUZZ={katapult:[90,40,180],drache:[30,30,30,30,30,30,220],pulver:[320,60,120],fluch:[60,90,60,90,420],fall:[200,80,450],shield:[20,25,20,25,20]};
 const ONLINE_REGION={x:7,z0:-6,z1:7.5};
-const DEFAULTS={attacks:[...R.ATTACKS],boostType:'extra',stack:'je',tempo:'mittel',ghostCurse:true,cam:'skip',killcam:true,match:1,camFx:true};
+const DEFAULTS={attacks:[...R.ATTACKS],boostType:'extra',stack:'je',tempo:'mittel',ghostCurse:true,cam:'skip',killcam:true,match:1,camFx:true,voice:true};
 const FLY={kurz:1.1,film:2,skip:2};   // Sekunden pro Burg im Rückblick
 
 /* ---------- 3D-Welt ---------- */
@@ -37,7 +37,7 @@ const sfx=new Proxy({},{get:(_,k)=>(...a)=>{try{if(audio&&soundOn)audio.sfx[k](.
 const at=d=>audio?audio.ac.currentTime+d/SPEED:0;
 function mood(m,e=0){curMood=m;curEnergy=e;if(audio)audio.setMood(m,e);}
 const buzz=p=>{try{navigator.vibrate&&navigator.vibrate(p);}catch{}};
-function setSound(on){soundOn=on;store.set('sound',on);$('snd1').classList.toggle('hide',!on);$('snd0').classList.toggle('hide',on);if(audio){audio.setSfx(on);audio.setMusic(on);}}
+function setSound(on){if(!on)try{speech.stop();}catch{}soundOn=on;store.set('sound',on);$('snd1').classList.toggle('hide',!on);$('snd0').classList.toggle('hide',on);if(audio){audio.setSfx(on);audio.setMusic(on);}}
 setSound(soundOn);
 world.onThunder=()=>sfx.thunder(0,.6);world.onFirework=()=>sfx.firework();
 // Geräusche aus der Welt (Schreie und Tiere mit Mindestabstand, damit es nicht zum Brei wird)
@@ -60,7 +60,20 @@ const hideScreens=()=>show(null);
 
 /* ---------- Herold, Aufforderung, Countdown ---------- */
 let heraldTimer=0;
-function herald(text,{dur=2.8,fanfare=false}={}){$('heraldText').textContent=text;const h=$('herald');h.classList.remove('on');void h.offsetWidth;h.classList.add('on');
+/* ---------- Sprecher: Herold und Wachen reden (Sprachausgabe des Geräts; in der Android-App über deren Sprachmodul) ---------- */
+const speech=(()=>{const ss=window.speechSynthesis,br=window.KFSpeech;let voice=null;
+  const pick=()=>{const vs=ss.getVoices();voice=vs.find(v=>/de[-_]AT/i.test(v.lang))||vs.find(v=>/^de[-_]DE/i.test(v.lang))||vs.find(v=>/^de/i.test(v.lang))||null;};
+  if(ss&&!br){try{pick();ss.addEventListener?ss.addEventListener('voiceschanged',pick):(ss.onvoiceschanged=pick);}catch{}}
+  // Für die Aussprache: Apostrophe weg, Gedankenstriche als Pause
+  const clean=t=>String(t).replace(/−/g,'minus ').replace(/[’']/g,'').replace(/\s*[–—]\s*/g,', ').replace(/[^\p{L}\p{N}\s.,!?:;-]/gu,'').trim();
+  return {speak(text,{pitch=1,rate=1,queue=false}={}){if(!cfg.voice||!soundOn||(BOT&&!Q.has('talk'))||document.hidden)return;const t=clean(text);if(!t)return;const r=Math.min(1.7,rate*Math.max(1,SPEED*.6));
+      try{if(br){br.speak(t,pitch,r,!queue);return;}if(!ss)return;if(!queue)ss.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'de-AT';if(voice)u.voice=voice;
+        u.pitch=pitch;u.rate=r;u.volume=1;ss.speak(u);if(audio&&!queue)audio.duck(.45,Math.min(4,t.length*.06));}catch(e){console.warn(e);}},
+    stop(){try{br?br.stop():ss&&ss.cancel();}catch{}},
+    unlock(){if(br||!ss)return;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;ss.speak(u);}catch{}}};})();
+addEventListener('pointerdown',()=>{if(!speech._u){speech._u=1;speech.unlock();}},{capture:true});
+const shout=key=>speech.speak(say(key),{pitch:1.3+Math.random()*.4,rate:1.25});
+function herald(text,{dur=2.8,fanfare=false,queue=false,silent=false}={}){if(!silent)speech.speak(text,{pitch:.85,rate:1.02,queue});$('heraldText').textContent=text;const h=$('herald');h.classList.remove('on');void h.offsetWidth;h.classList.add('on');
   clearTimeout(heraldTimer);heraldTimer=setTimeout(()=>h.classList.remove('on'),dur*1000/SPEED);if(fanfare)sfx.horn();emitEv('herald',text);}
 let promptTimer=null,lastTick=-1;
 function prompt(html,{secs=0}={}){$('promptText').innerHTML=html;$('prompt').classList.remove('hide');$('chips').innerHTML='';
@@ -179,6 +192,7 @@ async function presentStrike(st,first){
   if(first||n>6)sfx.drumroll(0,times.reduce((a,b)=>a+b,0)/SPEED);
   for(let i=0;i<n;i++){world.setReticle(st.path[i],col);const last=i===n-1;sfx.tick(0,last);if(i%2===0)buzz(8);await wait(times[i]);}
   if(st.src==='zufall'&&first)herald(say(st.type),{dur:2.2});
+  if(Math.random()<.6)shout('guardAlarm');
   emitEv('strike',{st,reticle:st.path[n-1]});buzz(BUZZ[st.type]);
   const hitOf=id=>st.hits.find(h=>h.id===id);const pend=[];
   if(st.type==='katapult'){sfx.creak(at(.9));sfx.whoosh(at(1.6),1.35/SPEED);await guard(world.catapult(st.target));world.setReticle(null);sfx.impact();await applyHit(st,hitOf(st.target));}
@@ -192,13 +206,13 @@ async function presentStrike(st,first){
 async function applyHit(st,h){if(!h)return;const p=P(h.id);
   if(h.broke){p.shields=0;world.setShield(h.id,0);herald(say('shieldBroken',{name:p.name}),{dur:2});sfx.shield();await wait(.4);}
   if(h.blocked){p.shields=h.shields;world.hitTower(h.id,true);world.setShield(h.id,h.shields);sfx.shield();buzz(BUZZ.shield);herald(say('blocked',{name:p.name}),{dur:2.2});return;}
-  world.hitTower(h.id,false,st.type,h.dmg);p.towers=h.towers;p.shields=h.shields;sfx.scream(at(.08),1+Math.random()*.3);sfx.gore(at(.12));
+  world.hitTower(h.id,false,st.type,h.dmg);p.towers=h.towers;p.shields=h.shields;sfx.scream(at(.08),1+Math.random()*.3);sfx.gore(at(.12));if(!h.fell)shout('guardHit');
   if(st.type!=='pulver')sfx.impact(0,.8);
   if(h.fell){await wait(.75);world.fallCastle(h.id);p.alive=false;p.shields=0;p.boosts=0;sfx.crumble();sfx.explosion(0,.7);[0,.25,.5].forEach(d=>sfx.scream(at(d),.85+Math.random()*.5));sfx.gore(at(.3),1.6);
-    sfx.bell(at(1.1),45,.4);buzz(BUZZ.fall);herald(say('fall',{name:p.name}),{dur:3});
+    sfx.bell(at(1.1),45,.4);buzz(BUZZ.fall);shout('guardFall');herald(say('fall',{name:p.name}),{dur:3,queue:true});
     if(cfg.killcam){sfx.slowmo();await guard(world.killcam(h.id));}
     await wait(1.6);sfx.ghost();}
-  else herald(say(h.dmg>1?'double':h.towers===1?'lastTower':'hit',{name:p.name,t:h.towers}),{dur:2.2});}
+  else herald(say(h.dmg>1?'double':h.towers===1?'lastTower':'hit',{name:p.name,t:h.towers}),{dur:2.2,queue:true});}
 
 /* ---------- Spielablauf (am Tisch und als Online-Gastgeber) ---------- */
 let mode='offline',paused=false;
@@ -372,7 +386,7 @@ function renderHall(){const hall=Object.entries(store.get('hall',{})).sort((a,b)
 /* ---------- Einstellungen ---------- */
 function mountSettings(box){box.innerHTML='';box.appendChild($('settingsTpl').content.cloneNode(true));box.querySelectorAll('input[type=radio]').forEach(r=>r.name=box.id+'_'+r.name);
   box.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.k;seg.querySelectorAll('input').forEach(inp=>{
-    const bool=['camFx','ghostCurse','killcam'].includes(k);
+    const bool=['camFx','ghostCurse','killcam','voice'].includes(k);
     if(k==='attacks')inp.checked=cfg.attacks.includes(inp.value);else inp.checked=String(bool?(cfg[k]?1:0):cfg[k])===inp.value;
     inp.onchange=()=>{sfx.click();if(k==='attacks'){const on=[...seg.querySelectorAll('input:checked')].map(i=>i.value);if(!on.length){inp.checked=true;return;}cfg.attacks=on;}
       else if(bool)cfg[k]=inp.value==='1';else if(k==='match')cfg.match=+inp.value;else cfg[k]=inp.value;

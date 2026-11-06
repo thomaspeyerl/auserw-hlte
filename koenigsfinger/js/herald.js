@@ -24,6 +24,10 @@ const T={
   boostZiel:['{name} nimmt {target} ins Visier – Rache!','{name} hat a Rechnung offen mit {target}!'],
   ghostCurse:['Da Geist von {name} verflucht {target}! Huuu!','Aus’m Jenseits verflucht {name} die Burg von {target}!'],
   dragonEat:['Da Drach’ landet bei {name} und frisst a Wache – koa Turm, nur a Jausn!','Der Drach’ hockt si auf {name}s Burg und holt si a Wache. Kost’ koan Turm!'],
+  // Zurufe der Wachen (werden nur gesprochen, nicht eingeblendet)
+  guardHit:['Auweh zwick!','Jessasmaria!','Hüüfe, Leitln!','Mei Turm, mei schena Turm!','Heast, wos is’n des?!','Na servas!','Herrgott, des brennt!'],
+  guardFall:['Lafts davon, Leitln!','Mia san hin!','Pfiat eich, i bin weg!','Rennts, rennts!'],
+  guardAlarm:['Obacht, do kummt wos!','Kopf eizieg’n!','Schilde hoch!','Jessas, des kummt zu uns!'],
   double:['Doppelschaden! {name} verliert gleich zwoa Türm’!'],
   countdown:['Auf die Mauern!','Haltet’s Euch fest!','Jetzt kracht’s!'],
   katapult:['Des Katapult knarzt – a Felsbrocken fliagt!','Katapult! Da kummt a Stoan daher, so groß wia a Kuah!'],

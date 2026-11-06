@@ -49,6 +49,7 @@ Unter `/koenigsfinger/` liegt ein Trinkspiel für 2–8 Leute (am besten 3–6) 
   - Vogelschwärme, rauchende Kamine.
   - Burgen werden Stein für Stein gebaut.
   - Wachen patrouillieren, zielen bei Alarm und rennen panisch, wenn etwas einschlägt.
+- **Sprecher:** Der Herold liest seine Ansagen vor, die Wachen rufen bei Alarm und Treffern („Obacht, do kummt wos!“, „Auweh zwick!“). Das nutzt die Sprachausgabe des Geräts (bevorzugt eine österreichische, sonst eine deutsche Stimme), in der Android-App über deren Sprachmodul. Abschaltbar im Menü.
 - **Kamera:**
   - Rückblick nach jeder Runde: Die Kamera fliegt nacheinander zu jeder getroffenen Burg, der Herold sagt den Schaden an. Kurz, filmisch, oder filmisch mit Antippen zum Überspringen.
   - Killcam in Zeitlupe, wenn eine Burg fällt (abschaltbar).

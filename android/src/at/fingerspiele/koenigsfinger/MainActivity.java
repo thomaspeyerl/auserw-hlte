@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.speech.tts.TextToSpeech;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -15,6 +17,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** Vollbild-WebView mit den Spielen aus den App-Assets. Die Dateien werden unter einer virtuellen https-Adresse
@@ -23,6 +26,19 @@ import java.util.Map;
 public class MainActivity extends Activity {
   static final String HOST = "appassets.androidplatform.net";
   WebView web;
+  TextToSpeech tts;
+  boolean ttsReady;
+
+  /** Sprachausgabe für Herold und Wachen (die WebView selbst kann nicht sprechen) – im Spiel als window.KFSpeech */
+  public class Speech {
+    @JavascriptInterface public void speak(String text, float pitch, float rate, boolean flush) {
+      if (!ttsReady || text == null) return;
+      tts.setPitch(Math.max(.5f, Math.min(2f, pitch)));
+      tts.setSpeechRate(Math.max(.5f, Math.min(2f, rate)));
+      tts.speak(text, flush ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD, null, "kf" + System.nanoTime());
+    }
+    @JavascriptInterface public void stop() { if (ttsReady) tts.stop(); }
+  }
 
   @Override protected void onCreate(Bundle b) {
     super.onCreate(b);
@@ -37,6 +53,14 @@ public class MainActivity extends Activity {
     s.setMediaPlaybackRequiresUserGesture(false);
     s.setAllowFileAccess(false);
     s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+    tts = new TextToSpeech(this, st -> {
+      if (st != TextToSpeech.SUCCESS) return;
+      int r = tts.setLanguage(new Locale("de", "AT"));
+      if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) tts.setLanguage(Locale.GERMAN);
+      ttsReady = true;
+    });
+    // Nur eigene Seiten werden geladen (fremde Links blockiert), daher ist die Schnittstelle nicht von außen erreichbar
+    web.addJavascriptInterface(new Speech(), "KFSpeech");
     web.setWebViewClient(new WebViewClient() {
       @Override public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
         Uri u = r.getUrl();
@@ -78,7 +102,8 @@ public class MainActivity extends Activity {
   }
   @Override public void onWindowFocusChanged(boolean f) { super.onWindowFocusChanged(f); if (f) immersive(); }
   @Override protected void onSaveInstanceState(Bundle o) { super.onSaveInstanceState(o); web.saveState(o); }
-  @Override protected void onPause() { super.onPause(); web.onPause(); }
+  @Override protected void onPause() { super.onPause(); web.onPause(); if (ttsReady) tts.stop(); }
+  @Override protected void onDestroy() { if (tts != null) tts.shutdown(); super.onDestroy(); }
   @Override protected void onResume() { super.onResume(); web.onResume(); }
   @Override public void onBackPressed() { if (web.canGoBack()) web.goBack(); else super.onBackPressed(); }
 }
